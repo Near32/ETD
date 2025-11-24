@@ -1,4 +1,6 @@
-CUDA_VISIBLE_DEVICES=$1 PYTHONPATH="./" xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" python3 src/train.py \
+#!/bin/bash
+
+CUDA_VISIBLE_DEVICES=$1 PYTHONPATH="./" xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" python3 -m ppo_etd.train \
     --exp_name test \
     --game_name=$2 \
     --run_id=0 \

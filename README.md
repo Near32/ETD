@@ -1,6 +1,6 @@
 # About
 
-This repository implements **Episodic Novelty Through Temporal Distance(ETD)**, an exploration method for reinforcement learning that has been found to be particularly effective in Contextual MDPs(CMDP). More details can be found in the original paper([ICLR 2025 Accepted](https://openreview.net/pdf?id=I7DeajDEx7)). In case you are mainly interested in the implementation of ETD, its major components can be found at `src/algo/intrinsic_rewards/tdd.py.` We also provide a reproduction of the temporal distance learning in maze, please refer to `maze/train_cmd1.py`. 
+This repository implements **Episodic Novelty Through Temporal Distance(ETD)**, an exploration method for reinforcement learning that has been found to be particularly effective in Contextual MDPs(CMDP). More details can be found in the original paper([ICLR 2025 Accepted](https://openreview.net/pdf?id=I7DeajDEx7)). In case you are mainly interested in the implementation of ETD, its major components can be found at `ppo_etd/algo/intrinsic_rewards/tdd.py.` We also provide a reproduction of the temporal distance learning in maze, please refer to `maze/train_cmd1.py`. 
 
 # Install
 
@@ -10,6 +10,8 @@ This repository implements **Episodic Novelty Through Temporal Distance(ETD)**, 
 conda create -n etd python=3.9
 conda activate etd
 pip install -r requirements.txt
+# from PPO/ETD/
+pip install -e .
 ```
 
 ### Miniworld
@@ -17,7 +19,7 @@ pip install -r requirements.txt
 ```bash
 git submodule init
 git submodule update
-cd src/env/gym_miniworld
+cd ppo_etd/env/gym_miniworld
 pip install pyglet==1.5.11
 pip install -e .
 ```
@@ -33,10 +35,10 @@ python train_cmd1.py
 
 ### Train ETD on MiniGrid
 
-Run the below command in the root directory of this repository to train a ETD agent in the standard *DoorKey-8x8* (MiniGrid) environment.
+Run the below command from the `PPO/ETD` directory to train a ETD agent in the standard *DoorKey-8x8* (MiniGrid) environment.
 
 ```bash
-PYTHONPATH=./ python3 src/train.py \\
+PYTHONPATH=./ python3 -m ppo_etd.train \\
   --int_rew_source=TDD \\
   --env_source=minigrid \\
   --game_name=DoorKey-8x8 \\
@@ -57,4 +59,3 @@ booktitle={The Thirteenth International Conference on Learning Representations},
 year={2025},
 url={https://openreview.net/forum?id=I7DeajDEx7}
 }
-

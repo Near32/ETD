@@ -27,7 +27,7 @@ do
                     free_gpu=$(get_free_gpu)
 
                     tmux send-keys -t "$session":"$exp_name-$env-$seed" "conda activate tdd" C-m
-                    tmux send-keys -t "$session":"$exp_name-$env-$seed" "CUDA_VISIBLE_DEVICES=$free_gpu PYTHONPATH='./' python3 src/train.py \
+                    tmux send-keys -t "$session":"$exp_name-$env-$seed" "CUDA_VISIBLE_DEVICES=$free_gpu PYTHONPATH='./' python3 -m ppo_etd.train \
                     --game_name=$env \
                     --run_id=$seed \
                     --int_rew_source=${mtd} \
