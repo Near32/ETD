@@ -38,8 +38,8 @@ xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" pytho
     --num_processes=16 \
     --features_dim=64 \
     --model_features_dim=64 \
-    --model_cnn_norm=BatchNorm \
-    --model_mlp_norm=BatchNorm \
-    --policy_cnn_norm=BatchNorm \
-    --policy_mlp_norm=BatchNorm 
+    --model_cnn_norm=LayerNorm \
+    --model_mlp_norm=LayerNorm \
+    --policy_cnn_norm=LayerNorm \
+    --policy_mlp_norm=LayerNorm 
 

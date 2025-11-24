@@ -7,7 +7,7 @@ name = "ppo-etd"
 version = "0.1.0"
 description = "Implementation of Episodic Novelty Through Temporal Distance (ETD)"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
     {name = "EReLELA authors"}
