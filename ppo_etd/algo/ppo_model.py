@@ -11,6 +11,7 @@ from ppo_etd.algo.intrinsic_rewards.plain_inverse import PlainInverseModel
 from ppo_etd.algo.intrinsic_rewards.rnd import RNDModel
 from ppo_etd.algo.intrinsic_rewards.e3b import E3BModel
 from ppo_etd.algo.intrinsic_rewards.erelela import EReLELAIntrinsicReward
+from ppo_etd.algo.intrinsic_rewards.count import CountIntrinsicReward
 from ppo_etd.algo.common_models.gru_cell import CustomGRUCell
 from ppo_etd.algo.common_models.mlps import *
 from ppo_etd.utils.common_func import init_module_with_name
@@ -82,6 +83,7 @@ class PPOModel(ActorCriticCnnPolicy):
         tdd_loss_fn: str = 'infonce_backward',
         tdd_logsumexp_coef: float = 0.1,
         offpolicy_data: int = 0,
+        count_feedbacks_type: str = 'normal',
         use_wandb: bool = False,
         project_name: Optional[str] = None,
         erelela_config_path: Optional[str] = None,
@@ -138,6 +140,7 @@ class PPOModel(ActorCriticCnnPolicy):
         self.tdd_loss_fn = tdd_loss_fn
         self.tdd_logsumexp_coef = tdd_logsumexp_coef
         self.offpolicy_data = offpolicy_data
+        self.count_feedbacks_type = count_feedbacks_type
         self.erelela_config_path = erelela_config_path
         self.erelela_overrides = erelela_overrides
         self.erelela_log_dir = erelela_log_dir
@@ -288,6 +291,12 @@ class PPOModel(ActorCriticCnnPolicy):
                 enable_wandb=self.erelela_enable_wandb,
                 wandb_project=self.erelela_wandb_project or self.project_name,
                 device=self.device,
+            )
+        if self.int_rew_source == ModelType.CountFirstVisit:
+            self.int_rew_model = CountIntrinsicReward(
+                **int_rew_model_kwargs,
+                num_envs=self.n_envs,
+                count_feedbacks_type=self.count_feedbacks_type,
             )
 
     def _build_mlp_extractor(self) -> None:

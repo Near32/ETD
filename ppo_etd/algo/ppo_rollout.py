@@ -672,6 +672,18 @@ class PPORollout(BaseAlgorithm):
                 obs_history=self.episodic_obs_emb_history,
                 stats_logger=self.rollout_stats
             )
+        elif self.int_rew_source == ModelType.CountFirstVisit:
+            intrinsic_rewards = self.policy.int_rew_model.process_transition(
+                curr_obs=self._last_obs,
+                next_obs=new_obs,
+                actions=actions,
+                rewards=rewards,
+                dones=dones,
+                infos=infos,
+                stats_logger=self.rollout_stats,
+            )
+            model_mems = None
+            return intrinsic_rewards, model_mems
         else:
             raise NotImplementedError
         return intrinsic_rewards, model_mems

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-GPU_ID=${1:-10}
+GPU_ID=${1:-0}
 RUN_ID=${2:-0}
 
-EXP_NAME=${3:-"erelela_keycorridor_s6r3"}
+EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=2+RGPeriod=512k+SEED=0"}
 GAME_NAME="KeyCorridorS6R3"
 PROJECT_NAME="EReLELA-KeyCorridor-S6R3"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S6_R3_minigrid_wandb_benchmark_AgnosticPOMDPERELELA_config.yaml"
@@ -12,7 +12,6 @@ PROJECT_NAME="EReLELA-KeyCorridor-S6R3"
 #ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_ETD_benchmark_AgnosticPOMDPERELELA_config.yaml"
 ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_SmallETD_benchmark_AgnosticPOMDPERELELA_config.yaml"
 
-#MIOPEN_DISABLE_CACHE=1 \
 #MIOPEN_DEBUG_DISABLE_FIND_DB=1 \
 #MIOPEN_FIND_MODE=NORMAL \
 #MIOPEN_DEBUG_CONV_IMPLICIT_GEMM=0 \
@@ -25,11 +24,11 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --game_name=${GAME_NAME} \
     --env_source=minigrid \
     --run_id=${RUN_ID} \
-    --use_wandb=0 \
+    --use_wandb=1 \
     --int_rew_source=EReLELA \
     --erelela_config=${ERELELA_CONFIG} \
-    --erelela_intrinsic_weight=0.005 \
-    --erelela_extrinsic_weight=10.0 \
+    --erelela_intrinsic_weight=0.01 \
+    --erelela_extrinsic_weight=1.0 \
     --erelela_feedbacks_type=normal \
     --total_steps=5000000 \
     --int_rew_coef=0.01 \
@@ -39,7 +38,7 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --learning_rate=3e-4 \
     --model_learning_rate=1e-6 \
     --max_grad_norm=0.5 \
-    --num_processes=2 \
+    --num_processes=16 \
     --discount=0.99 \
     --model_mlp_layers=1 \
     --n_steps=512 \
@@ -112,12 +111,12 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=ELA_rg_l2_weight_decay=0.0 \
     --erelela_override=ELA_rg_vocab_size=64 \
     --erelela_override=ELA_rg_max_sentence_length=128 \
-    --erelela_override=ELA_rg_training_period=256000 \
+    --erelela_override=ELA_rg_training_period=512000 \
     --erelela_override=ELA_rg_training_max_skip=32 \
     --erelela_override=ELA_rg_training_adaptive_period=False \
     --erelela_override=ELA_rg_descriptive=True \
     --erelela_override=ELA_rg_use_curriculum_nbr_distractors=False \
-    --erelela_override=ELA_rg_nbr_epoch_per_update=1 \
+    --erelela_override=ELA_rg_nbr_epoch_per_update=2 \
     --erelela_override=ELA_rg_accuracy_threshold=90 \
     --erelela_override=ELA_rg_relative_expressivity_threshold=90 \
     --erelela_override=ELA_rg_expressivity_threshold=20 \
@@ -163,3 +162,4 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=benchmarking_record_episode_interval=4 \
     --erelela_override=benchmarking_interval=1.0e4 \
     --erelela_override=train_observation_budget=1.0e7
+

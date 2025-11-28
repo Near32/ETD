@@ -517,7 +517,7 @@ agents:
             hyperparameters:
                 vocab_size: *ELA_rg_vocab_size
                 max_sentence_length: *ELA_rg_max_sentence_length
-                caption_feature_dim: &caption_feature_dim 256 #256 #64
+                caption_feature_dim: &caption_feature_dim 128 #256 #64
                 feature_dim: &feature_dim 128 #512 #256 #64
                 lstm_input_dim: &lstm_input_dim 192 #576 #1088 #576 #577 #321 #769 #512 #128
                 comm_state_dim: &comm_state_dim 256

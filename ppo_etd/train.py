@@ -13,7 +13,11 @@ import warnings
 import torch as th
 th.backends.cudnn.enabled = False
 th.backends.mkldnn.enabled = True
-
+if th.cuda.is_available():
+    th.cuda.init()
+    _ = th.zeros(1, device='cuda')  # Force full init
+else:
+    raise NotImplementedError
 
 # noinspection PyUnresolvedReferences
 # try:
@@ -427,6 +431,7 @@ def train(config):
         tdd_loss_fn=config.tdd_loss_fn,
         tdd_logsumexp_coef=config.tdd_logsumexp_coef,
         offpolicy_data=config.offpolicy_data,
+        count_feedbacks_type=config.count_feedbacks_type,
     )
 
     policy_kwargs.update(dict(
@@ -614,7 +619,10 @@ def train(config):
 @click.option('--log_dsc_verbose', default=0, type=int, help='Whether to record the discriminator loss for each action')
 @click.option('--env_render', default=0, type=int, help='Whether to render games in human mode')
 @click.option('--use_status_predictor', default=0, type=int,
-              help='Whether to train status predictors for analysis (MiniGrid only)')
+    help='Whether to train status predictors for analysis (MiniGrid only)')
+@click.option('--count_feedbacks_type', default='normal', 
+    #choices=['normal', 'across-training', 'count-based', 'across-training-normal'],
+    type=str, help='Type of count-based feedbacks')
 def main(
     run_id, exp_name, use_wandb, log_dir, total_steps, features_dim, model_features_dim, learning_rate, model_learning_rate,
     num_processes, batch_size, n_steps, env_source, game_name, project_name, map_size, can_see_walls, fully_obs,
@@ -628,7 +636,7 @@ def main(
     policy_cnn_norm, policy_mlp_norm, policy_gru_norm, model_cnn_type, model_mlp_layers, model_cnn_norm, model_mlp_norm,
     model_gru_norm, activation_fn, cnn_activation_fn, gru_layers, optimizer, optim_eps, adam_beta1, adam_beta2,
     rmsprop_alpha, rmsprop_momentum, write_local_logs, enable_plotting, plot_interval, plot_colormap, record_video,
-    rec_interval, video_length, log_dsc_verbose, env_render, use_status_predictor
+    rec_interval, video_length, log_dsc_verbose, env_render, use_status_predictor, count_feedbacks_type,
 ):
     set_random_seed(run_id, using_cuda=True)
     args = locals().items()

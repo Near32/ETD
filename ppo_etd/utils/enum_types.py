@@ -18,6 +18,7 @@ class ModelType(Enum):
     E3B = 10
     Count = 11
     EReLELA = 12
+    CountFirstVisit = 13
 
     @staticmethod
     def get_enum_model_type(model_type):
@@ -49,6 +50,8 @@ class ModelType(Enum):
                 return ModelType.Count
             elif model_type == "erelela":
                 return ModelType.EReLELA
+            elif model_type == "countfirstvisit":
+                return ModelType.CountFirstVisit
             else:
                 return ModelType.NoModel
         raise ValueError
