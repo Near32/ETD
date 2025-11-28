@@ -79,17 +79,18 @@ class EReLELAIntrinsicReward(IntrinsicRewardBaseModel):
         }
         return exp_dict
 
-    def _caption_key(self, obs) -> tuple:
-        state_tensor = self._to_tensor(obs)
+    def _batched_caption_key(self, batched_obs) -> List[tuple]:
+        state_tensor = self._to_tensor(batched_obs)
         with th.no_grad():
-            prediction = self.actor_predictor(x=state_tensor, rnn_states={})
-        captions = prediction['output'][0].cpu().numpy()
-        return tuple(captions[0].tolist())
+            predictions = self.actor_predictor(x=state_tensor, rnn_states={})
+        captions = predictions['output'][0].cpu().numpy()
+        return [tuple(caption.tolist()) for caption in captions]
 
     def process_transition(self, curr_obs, next_obs, actions, rewards, dones, infos, stats_logger=None):
         self.latest_intrinsic_rewards.fill(0.0)
-
-        for env_id in range(self.num_envs):
+        batched_caption_keys = self._batched_caption_key(next_obs)
+        
+        for env_id, caption_key in enumerate(batched_caption_keys):
             exp_dict = self._build_exp_dict(
                 curr_obs[env_id],
                 next_obs[env_id],
@@ -99,8 +100,6 @@ class EReLELAIntrinsicReward(IntrinsicRewardBaseModel):
                 infos[env_id] if infos is not None else {},
             )
             self.ela_wrapper.store(exp_dict=exp_dict, actor_index=env_id, minimal=True)
-
-            caption_key = self._caption_key(next_obs[env_id])
             counts = self.caption_counts[env_id]
             counts[caption_key] += 1
 

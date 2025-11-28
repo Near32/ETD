@@ -333,7 +333,7 @@ class PPOModel(ActorCriticCnnPolicy):
     def _get_rnn_embeddings(self, hiddens: Optional[Tensor], inputs: Tensor, modules: List[nn.Module]):
         outputs = []
         for i, module in enumerate(modules):
-            hidden_i = th.squeeze(hiddens[:, i, :])
+            hidden_i = th.squeeze(hiddens[:, i, :], dim=-1)
             output_i = module(inputs, hidden_i)
             inputs = output_i
             outputs.append(output_i)
@@ -344,7 +344,7 @@ class PPOModel(ActorCriticCnnPolicy):
         obs = preprocess_obs(obs, self.observation_space, normalize_images=self.normalize_images)
         curr_features = self.features_extractor(obs)
         memories = self._get_rnn_embeddings(mem, curr_features, self.policy_rnns)
-        features = th.squeeze(memories[:, -1, :])
+        features = th.squeeze(memories[:, -1, :], dim=-1)
         latent_pi, latent_vf = self.mlp_extractor(features)
         latent_sde = latent_pi
         return latent_pi, latent_vf, latent_sde, memories

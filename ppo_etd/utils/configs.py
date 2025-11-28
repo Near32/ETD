@@ -1,12 +1,77 @@
+import logging
 import os
 import time
 
 import torch as th
 import random
 import wandb
+import gym
+import numpy as np
 from torch import nn
 from gym_minigrid.wrappers import ImgObsWrapper, FullyObsWrapper, ReseedWrapper
 from regym.util.wrappers import baseline_ther_wrapper
+
+from ppo_etd.utils.wandb_utils import ensure_wandb_initialized
+
+
+class ResetObsInfoCompatibilityWrapper(gym.Wrapper):
+    """Ensure env.reset returns only observations for SB3 VecEnvs."""
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.last_reset_info = None
+
+    @staticmethod
+    def _unwrap_first(value):
+        if isinstance(value, (list, tuple)) and len(value) > 0:
+            return value[0]
+        return value
+
+    @staticmethod
+    def _to_numpy(value):
+        if isinstance(value, dict):
+            return {k: ResetObsInfoCompatibilityWrapper._to_numpy(v) for k, v in value.items()}
+        if hasattr(value, "detach") and hasattr(value, "cpu") and hasattr(value, "numpy"):
+            return value.detach().cpu().numpy()
+        if isinstance(value, (np.ndarray, np.number)):
+            return value
+        try:
+            return np.asarray(value)
+        except Exception:
+            return value
+
+    def _format_actions(self, action):
+        if isinstance(action, (list, tuple)):
+            return [self._to_numpy(act) for act in action]
+        return [self._to_numpy(action)]
+
+    def reset(self, **kwargs):
+        result = self.env.reset(**kwargs)
+        if isinstance(result, tuple) and len(result) == 2:
+            obs, info = result
+            obs = self._unwrap_first(obs)
+            info = self._unwrap_first(info)
+            self.last_reset_info = info
+            return obs
+        self.last_reset_info = None
+        return result
+
+    def step(self, action, **kwargs):
+        env_action = self._format_actions(action)
+        result = self.env.step(env_action, **kwargs)
+        if isinstance(result, tuple) and len(result) == 5:
+            obs, reward, terminated, truncated, info = result
+            done = terminated or truncated
+        else:
+            obs, reward, done, info = result
+
+        obs = self._unwrap_first(obs)
+        reward = self._unwrap_first(reward)
+        done = bool(self._unwrap_first(done))
+        info = self._unwrap_first(info)
+        return obs, reward, done, info
+
+
 # from procgen import ProcgenEnv
 # import ppo_etd.env.mujoco_custom.halfcheetah_vel_sparse
 # import ppo_etd.env.dmc
@@ -63,13 +128,33 @@ class TrainingConfig():
                 # dir=str(self.log_dir),
                 name=f'{self.exp_name}_{self.run_id}',
                 #entity='thu_jsbsim',  # your project name on wandb
-                project="TDD",
-                settings=wandb.Settings(start_method="fork"),
+                project=self.project_name,
+                settings=wandb.Settings(
+                    start_method="fork",
+        	        x_label="rank_0",
+        	        mode="shared",
+        	        x_primary=True,
+        	        #x_stats_gpu_device_ids=[0, 1],  # (Optional) Only track metrics for GPU 0 and 1
+                ),
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 monitor_gym=True,  # auto-upload the videos of agents playing the game
                 save_code=True,  # optional
                 config=vars(self),
             )
+            os.environ['WANDB_RUN_ID'] = self.wandb_run.id
+            os.environ['WANDB_PROJECT'] = self.wandb_run.project
+            if getattr(self.wandb_run, 'entity', None):
+                os.environ['WANDB_ENTITY'] = self.wandb_run.entity
+            os.environ['WANDB_RESUME'] = 'allow'
+            child_group = os.environ.get('WANDB_CHILD_GROUP', f'{self.exp_name}_{self.run_id}_envs')
+            os.environ['WANDB_CHILD_GROUP'] = child_group
+            os.environ['WANDB_CHILD_RUN_MODE'] = 'group'
+            os.environ['WANDB_CHILD_PROJECT'] = self.wandb_run.project
+            if getattr(self.wandb_run, 'entity', None):
+                os.environ['WANDB_CHILD_ENTITY'] = self.wandb_run.entity
+            os.environ.setdefault('WANDB_CHILD_NAME_PREFIX', f'{self.exp_name}_{self.run_id}_env')
+            os.environ.setdefault('WANDB_CHILD_JOB_TYPE', 'env_worker')
+            os.environ.setdefault('WANDB_CHILD_TAGS', 'env,worker')
         else:
             self.wandb_run = None
 
@@ -113,7 +198,8 @@ class TrainingConfig():
                 save_video=False,
                 save_episode=False,
             )
-        return self._maybe_apply_baseline_wrapper(wrapper_class)
+        wrapper_class = self._maybe_apply_baseline_wrapper(wrapper_class)
+        return self._attach_wandb_initializer(wrapper_class)
 
     def _maybe_apply_baseline_wrapper(self, wrapper_class):
         if not getattr(self, 'use_baseline_ther_wrapper', False):
@@ -130,16 +216,35 @@ class TrainingConfig():
             return baseline_wrapper
 
         def combined(env, base_wrapper=wrapper_class):
-            return baseline_wrapper(base_wrapper(env))
+            #return baseline_wrapper(base_wrapper(env))
+            #return base_wrapper(baseline_wrapper(env))
+            # We no longer combine, and expect the baseline wrapper to be applied directly
+            # The baseline wrapper should handle the base wrapper internally.
+            wrapped_env = baseline_wrapper(env)
+            return ResetObsInfoCompatibilityWrapper(wrapped_env)
 
         return combined
 
+    def _attach_wandb_initializer(self, wrapper_class):
+        if not self.use_wandb:
+            return wrapper_class
+
+        def _wandb_wrapper(env, base_wrapper=wrapper_class):
+            ensure_wandb_initialized()
+            if base_wrapper is None:
+                return env
+            return base_wrapper(env)
+
+        return _wandb_wrapper
+
     def get_venv(self, wrapper_class=None):
         if self.env_source == EnvSrc.MiniGrid:
+            #from stable_baselines3.common.vec_env import DummyVecEnv
             venv = make_vec_env(
                 self.env_name,
                 wrapper_class=wrapper_class,
                 vec_env_cls=CustomSubprocVecEnv,
+                #vec_env_cls=DummyVecEnv,
                 n_envs=self.num_processes,
                 monitor_dir=self.log_dir,
                 env_kwargs={'disable_env_checker': True},
@@ -337,7 +442,3 @@ class TrainingConfig():
             features_extractor_common_kwargs, \
             model_cnn_features_extractor_class, \
             model_features_extractor_common_kwargs
-
-
-
-

@@ -3,6 +3,7 @@ import wandb
 import warnings
 
 from gym import spaces
+import torch
 from torch import Tensor
 
 from ppo_etd.utils.loggers import StatisticsLogger, LocalLogger
@@ -181,10 +182,13 @@ class PPOTrainer(PPORollout):
                             stats_logger=self.training_stats
                         )
                     elif self.policy.int_rew_source != ModelType.NoModel:
+                        prev = torch.is_grad_enabled()
+                        torch.set_grad_enabled(True)
                         self.policy.int_rew_model.optimize(
                             rollout_data=rollout_data,
                             stats_logger=self.training_stats
                         )
+                        torch.set_grad_enabled(prev)
                     
 
                 # Training for policy and value nets

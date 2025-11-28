@@ -1,5 +1,7 @@
 # Disable Warning
 import logging
+import copy
+import time
 logging.captureWarnings(True)
 import os
 os.environ["CUDNN_LOGINFO_DBG"] = '0'
@@ -9,6 +11,9 @@ import ast
 import click
 import warnings
 import torch as th
+th.backends.cudnn.enabled = False
+th.backends.mkldnn.enabled = True
+
 
 # noinspection PyUnresolvedReferences
 # try:
@@ -25,23 +30,226 @@ from stable_baselines3.common.utils import set_random_seed
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
-def parse_key_value_pairs(pairs):
+ELA_BOOL_KEYS = {
+    'use_ELA',
+    'ELA_use_ELA',
+    'ELA_with_rg_training',
+    'ELA_with_rg_optimize',
+    'ELA_rg_dataloader_shuffle',
+    'ELA_rg_compactness_ambiguity_metric_with_ordering',
+    'ELA_rg_compactness_ambiguity_metric_use_cumulative_scores',
+    'ELA_rg_sanity_check_compactness_ambiguity_metric',
+    'ELA_rg_training_adaptive_period',
+    'ELA_rg_verbose',
+    'ELA_rg_use_cuda',
+    'ELA_rg_with_semantic_grounding_metric',
+    'ELA_rg_use_semantic_cooccurrence_grounding',
+    'ELA_rg_record_unique_stats',
+    'ELA_rg_filter_out_non_unique',
+    'ELA_lock_test_storage',
+    'ELA_rg_same_episode_target',
+    'ELA_rg_with_color_jitter_augmentation',
+    'ELA_rg_with_gaussian_blur_augmentation',
+    'ELA_rg_egocentric',
+    'ELA_rg_descriptive',
+    'ELA_rg_distractor_sampling_with_replacement',
+    'ELA_rg_object_centric',
+    'ELA_rg_force_eos',
+    'ELA_rg_shared_architecture',
+    'ELA_rg_normalize_features',
+    'ELA_rg_with_logits_mdl_principle',
+    'ELA_rg_logits_mdl_principle_normalization',
+    'ELA_rg_logits_mdl_principle_use_inst_accuracy',
+    'ELA_rg_iterated_learning_scheme',
+    'ELA_rg_iterated_learning_rehearse_MDL',
+    'ELA_rg_use_obverter_sampling',
+    'ELA_rg_obverter_sampling_round_alternation_only',
+    'ELA_rg_homoscedastic_multitasks_loss',
+    'ELA_rg_use_feat_converter',
+    'ELA_rg_use_curriculum_nbr_distractors',
+    'ELA_rg_metric_fast',
+    'ELA_rg_metric_resampling',
+    'ELA_rg_dis_metric_resampling',
+    'ELA_rg_metric_active_factors_only',
+}
+
+DEFAULT_ERELELA_OVERRIDES = {
+    'use_ELA': False,
+    'ELA_use_ELA': False,
+    'ELA_with_rg_training': True,
+    'ELA_with_rg_optimize': True,
+    'ELA_reward_extrinsic_weight': 1.0,
+    'ELA_reward_intrinsic_weight': 1.0,
+    'ELA_feedbacks_type': 'normal',
+    'ELA_feedbacks_failure_reward': 0.0,
+    'ELA_feedbacks_success_reward': 1.0,
+    'ELA_rg_dataloader_shuffle': True,
+    'ELA_rg_language_dynamic_metric_epoch_period': 32,
+    'ELA_rg_compactness_ambiguity_metric_epoch_period': 1,
+    'ELA_rg_compactness_ambiguity_metric_with_ordering': False,
+    'ELA_rg_compactness_ambiguity_metric_use_cumulative_scores': True,
+    'ELA_rg_compactness_ambiguity_metric_language_specs': 'emergent',
+    'ELA_rg_sanity_check_compactness_ambiguity_metric': False,
+    'ELA_rg_training_period': 1024,
+    'ELA_rg_training_max_skip': -1,
+    'ELA_rg_training_adaptive_period': False,
+    'ELA_rg_accuracy_threshold': 75.0,
+    'ELA_rg_relative_expressivity_threshold': 0.0,
+    'ELA_rg_expressivity_threshold': 0.0,
+    'ELA_rg_verbose': True,
+    'ELA_rg_use_cuda': False,
+    'ELA_exp_key': 'succ_s',
+    'ELA_rg_with_semantic_grounding_metric': False,
+    'ELA_rg_use_semantic_cooccurrence_grounding': False,
+    'ELA_grounding_signal_key': 'info:desired_goal',
+    'ELA_rg_semantic_cooccurrence_grounding_lambda': 1.0,
+    'ELA_rg_semantic_cooccurrence_grounding_noise_magnitude': 0.0,
+    'ELA_split_strategy': 'divider-1-offset-0',
+    'ELA_rg_record_unique_stats': False,
+    'ELA_rg_filter_out_non_unique': False,
+    'ELA_replay_capacity': 1024,
+    'ELA_lock_test_storage': False,
+    'ELA_rg_same_episode_target': False,
+    'ELA_test_replay_capacity': 512,
+    'ELA_test_train_split_interval': 5,
+    'ELA_train_dataset_length': None,
+    'ELA_test_dataset_length': None,
+    'ELA_rg_object_centric_version': 1,
+    'ELA_rg_descriptive_version': 2,
+    'ELA_rg_with_color_jitter_augmentation': False,
+    'ELA_rg_color_jitter_prob': 0.0,
+    'ELA_rg_with_gaussian_blur_augmentation': False,
+    'ELA_rg_gaussian_blur_prob': 0.0,
+    'ELA_rg_egocentric_tr_degrees': 15.0,
+    'ELA_rg_egocentric_tr_xy': 10.0,
+    'ELA_rg_egocentric': False,
+    'ELA_rg_egocentric_prob': 0.0,
+    'ELA_rg_nbr_train_distractors': 7,
+    'ELA_rg_nbr_test_distractors': 7,
+    'ELA_rg_descriptive': False,
+    'ELA_rg_descriptive_ratio': 0.0,
+    'ELA_rg_observability': 'partial',
+    'ELA_rg_max_sentence_length': 10,
+    'ELA_rg_distractor_sampling': 'uniform',
+    'ELA_rg_distractor_sampling_scheme_version': 1,
+    'ELA_rg_distractor_sampling_with_replacement': False,
+    'ELA_rg_object_centric': False,
+    'ELA_rg_object_centric_type': 'hard',
+    'ELA_rg_graphtype': 'straight_through_gumbel_softmax',
+    'ELA_rg_vocab_size': 32,
+    'ELA_rg_force_eos': True,
+    'ELA_rg_symbol_embedding_size': 64,
+    'ELA_rg_arch': 'BN+7x4x3xCNN',
+    'ELA_rg_shared_architecture': False,
+    'ELA_rg_normalize_features': False,
+    'ELA_rg_agent_loss_type': 'Hinge',
+    'ELA_rg_with_logits_mdl_principle': False,
+    'ELA_rg_logits_mdl_principle_normalization': False,
+    'ELA_rg_logits_mdl_principle_use_inst_accuracy': False,
+    'ELA_rg_logits_mdl_principle_factor': 1.0e-3,
+    'ELA_rg_logits_mdl_principle_accuracy_threshold': 10.0,
+    'ELA_rg_cultural_pressure_it_period': 0,
+    'ELA_rg_cultural_speaker_substrate_size': 1,
+    'ELA_rg_cultural_listener_substrate_size': 1,
+    'ELA_rg_cultural_reset_strategy': 'uniformSL',
+    'ELA_rg_cultural_pressure_meta_learning_rate': 1.0e-3,
+    'ELA_rg_iterated_learning_scheme': False,
+    'ELA_rg_iterated_learning_period': 5,
+    'ELA_rg_iterated_learning_rehearse_MDL': False,
+    'ELA_rg_iterated_learning_rehearse_MDL_factor': 1.0,
+    'ELA_rg_obverter_threshold_to_stop_message_generation': 0.9,
+    'ELA_rg_obverter_nbr_games_per_round': 20,
+    'ELA_rg_use_obverter_sampling': False,
+    'ELA_rg_obverter_sampling_round_alternation_only': False,
+    'ELA_rg_batch_size': 32,
+    'ELA_rg_dataloader_num_worker': 8,
+    'ELA_rg_learning_rate': 3.0e-4,
+    'ELA_rg_weight_decay': 0.0,
+    'ELA_rg_l1_weight_decay': 0.0,
+    'ELA_rg_l2_weight_decay': 0.0,
+    'ELA_rg_dropout_prob': 0.0,
+    'ELA_rg_emb_dropout_prob': 0.0,
+    'ELA_rg_homoscedastic_multitasks_loss': False,
+    'ELA_rg_use_feat_converter': True,
+    'ELA_rg_use_curriculum_nbr_distractors': False,
+    'ELA_rg_init_curriculum_nbr_distractors': 1,
+    'ELA_rg_nbr_experience_repetition': 1,
+    'ELA_rg_agent_nbr_latent_dim': 32,
+    'ELA_rg_symbol_processing_nbr_hidden_units': 512,
+    'ELA_rg_mini_batch_size': 32,
+    'ELA_rg_optimizer_type': 'adam',
+    'ELA_rg_nbr_epoch_per_update': 3,
+    'ELA_rg_metric_epoch_period': 10024,
+    'ELA_rg_dis_metric_epoch_period': 10024,
+    'ELA_rg_metric_batch_size': 16,
+    'ELA_rg_metric_fast': True,
+    'ELA_rg_parallel_TS_worker': 8,
+    'ELA_rg_nbr_train_points': 1024,
+    'ELA_rg_nbr_eval_points': 512,
+    'ELA_rg_metric_resampling': True,
+    'ELA_rg_dis_metric_resampling': True,
+    'ELA_rg_seed': 1,
+    'ELA_rg_metric_active_factors_only': True,
+}
+
+
+def _extract_scalar_items(source_dict):
+    scalars = {}
+    if not isinstance(source_dict, dict):
+        return scalars
+    for key, value in source_dict.items():
+        if isinstance(value, (int, float, bool, str)) or value is None:
+            scalars[key] = value
+        elif isinstance(value, (list, tuple, dict)):
+            scalars[key] = copy.deepcopy(value)
+    return scalars
+
+
+def _load_erelela_config_scalars(config_path):
+    if not config_path:
+        return {}
+    try:
+        from impala_ride.algos.ela import load_configs
+        _, agents_cfg, tasks_cfg = load_configs(config_path, kwargs={})
+    except Exception as exc:
+        logging.warning("Could not preload EReLELA config '%s': %s", config_path, exc)
+        return {}
+
+    if not tasks_cfg:
+        return {}
+
+    task_cfg = tasks_cfg[0]
+    agent_cfg = agents_cfg.get(task_cfg.get('agent-id'), {}) if isinstance(agents_cfg, dict) else {}
+
+    scalars = {}
+    scalars.update(_extract_scalar_items(task_cfg))
+    scalars.update(_extract_scalar_items(agent_cfg))
+    return scalars
+
+
+def parse_key_value_pairs(pairs, erelela_config_path=None, prefill=None):
     result = {}
-    if not pairs:
-        return result
-    for entry in pairs:
-        if entry is None or '=' not in entry:
-            continue
-        key, value = entry.split('=', 1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-        try:
-            parsed_value = ast.literal_eval(value)
-        except (ValueError, SyntaxError):
-            parsed_value = value
-        result[key] = parsed_value
+    if erelela_config_path:
+        result.update(_load_erelela_config_scalars(erelela_config_path))
+    
+    if prefill is not None:
+        result.update(prefill) 
+
+    if pairs:
+        for entry in pairs:
+            if entry is None or '=' not in entry:
+                continue
+            key, value = entry.split('=', 1)
+            key = key.strip()
+            value = value.strip()
+            if not key:
+                continue
+            try:
+                parsed_value = ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                parsed_value = value
+            result[key] = parsed_value
+
     return result
 
 
@@ -49,6 +257,113 @@ def train(config):
     th.autograd.set_detect_anomaly(False)
     th.set_default_dtype(th.float32)
     th.backends.cudnn.benchmark = False
+
+    # Make sure baseline wrapper toggles/kwargs are ready before environments are built.
+    erelela_overrides = None
+    baseline_prefill = dict(DEFAULT_ERELELA_OVERRIDES)
+    if config.erelela_config:
+        overrides_prefill = dict(DEFAULT_ERELELA_OVERRIDES)
+        erelela_overrides = parse_key_value_pairs(
+            config.erelela_override,
+            erelela_config_path=config.erelela_config,
+            prefill=overrides_prefill,
+        )
+        # Update for specific command line arguments:
+        erelela_overrides.update({
+            'ELA_reward_intrinsic_weight': config.erelela_intrinsic_weight,
+            'ELA_reward_extrinsic_weight': config.erelela_extrinsic_weight,
+            'ELA_feedbacks_type': config.erelela_feedbacks_type,
+        })
+
+        factor = erelela_overrides["ELA_rg_logits_mdl_principle_factor"]
+        if isinstance(factor, str):
+            if '-' in factor:
+                betas = [float(beta) for beta in factor.split('-')]
+                assert len(betas) == 2
+            else:
+                betas = None 
+                factor = float(factor)
+        else:
+            betas = None 
+            factor = float(factor)
+
+        if betas is not None or factor > 0.0:
+            erelela_overrides["ELA_rg_with_logits_mdl_principle"] = True
+            if betas is not None:
+                erelela_overrides["ELA_rg_logits_mdl_principle_accuracy_threshold"] = 0.0
+
+        if 'episodic-dissimilarity' in erelela_overrides['ELA_rg_distractor_sampling']:
+            erelela_overrides['ELA_rg_same_episode_target'] = True 
+
+        if erelela_overrides['ELA_rg_gaussian_blur_prob'] > 0.0 :
+            erelela_overrides['ELA_rg_with_gaussian_blur_augmentation'] = True
+
+        if erelela_overrides['ELA_rg_color_jitter_prob'] > 0.0 :
+            erelela_overrides['ELA_rg_with_color_jitter_augmentation'] = True
+
+        if erelela_overrides['ELA_rg_egocentric_prob'] > 0.0 :
+            erelela_overrides['ELA_rg_egocentric'] = True
+
+        if "natural" in erelela_overrides["ELA_rg_compactness_ambiguity_metric_language_specs"]:
+            erelela_overrides["THER_observe_achieved_goal"] = True
+            print(f"WARNING: ELA_rg_compactness_ambiguity_metric_language_specs contains 'natural'. Thus, THER_observed_achieved_goal is set to True. Necessary for the MultiRoom envs to have BehaviouralDescriptions in NL.")
+            time.sleep(1)
+
+        if erelela_overrides['language_guided_curiosity']:
+            erelela_overrides['coverage_manipulation_metric'] = True
+            if 'descr' not in erelela_overrides['language_guided_curiosity_descr_type']:
+                erelela_overrides["MiniWorld_entity_visibility_oracle"] = True
+        
+        baseline_prefill = dict(erelela_overrides)
+        print(erelela_overrides)
+
+    config.use_baseline_ther_wrapper = bool(config.use_baseline_ther_wrapper)
+    '''
+    config.baseline_ther_kwargs = parse_key_value_pairs(
+        config.baseline_ther_arg,
+        erelela_config_path=config.erelela_config,
+        prefill=baseline_prefill,
+    )
+    '''
+    if config.use_baseline_ther_wrapper:
+        config.baseline_ther_kwargs = dict(
+            size=baseline_prefill['observation_resize_dim'], 
+            skip=baseline_prefill['nbr_frame_skipping'], 
+            stack=baseline_prefill['nbr_frame_stacking'],
+            single_life_episode=baseline_prefill['single_life_episode'],
+            nbr_max_random_steps=baseline_prefill['nbr_max_random_steps'],
+            clip_reward=baseline_prefill['clip_reward'],
+            time_limit=baseline_prefill['time_limit'],
+            max_sentence_length=128, #agent_config['THER_max_sentence_length'] if agent_config['use_THER'] else agent_config['ELA_rg_max_sentence_length'],
+            vocabulary=baseline_prefill['THER_vocabulary'],
+            vocab_size=baseline_prefill['THER_vocab_size'],
+            previous_reward_action=baseline_prefill['previous_reward_action'],
+            observation_key=baseline_prefill['observation_key'],
+            concatenate_keys_with_obs=baseline_prefill['concatenate_keys_with_obs'],
+            add_rgb_wrapper=baseline_prefill['add_rgb_wrapper'],
+            full_obs=baseline_prefill['full_obs'],
+            single_pick_episode=baseline_prefill['single_pick_episode'],
+            observe_achieved_pickup_goal=baseline_prefill['THER_observe_achieved_goal'],
+            use_visible_entities=False, #('visible-entities' in task_config['ETHER_with_Oracle_type']),
+            babyai_mission=baseline_prefill['BabyAI_Bot_action_override'],
+            miniworld_symbolic_image=baseline_prefill['MiniWorld_symbolic_image'],
+            miniworld_entity_visibility_oracle=baseline_prefill['MiniWorld_entity_visibility_oracle'],
+            miniworld_entity_visibility_oracle_language_specs=baseline_prefill['MiniWorld_entity_visibility_oracle_language_specs'],
+            miniworld_entity_visibility_oracle_include_discrete_depth=baseline_prefill['MiniWorld_entity_visibility_oracle_include_discrete_depth'],
+            miniworld_entity_visibility_oracle_include_depth=baseline_prefill['MiniWorld_entity_visibility_oracle_include_depth'],
+            miniworld_entity_visibility_oracle_include_depth_precision=baseline_prefill['MiniWorld_entity_visibility_oracle_include_depth_precision'],
+            miniworld_entity_visibility_oracle_too_far_threshold=baseline_prefill['MiniWorld_entity_visibility_oracle_too_far_threshold'],
+            miniworld_entity_visibility_oracle_top_view=baseline_prefill['MiniWorld_entity_visibility_oracle_top_view'],
+            language_guided_curiosity=baseline_prefill['language_guided_curiosity'],
+            language_guided_curiosity_extrinsic_weight=baseline_prefill['language_guided_curiosity_extrinsic_weight'],
+            language_guided_curiosity_intrinsic_weight=baseline_prefill['language_guided_curiosity_intrinsic_weight'],
+            language_guided_curiosity_binary_reward=baseline_prefill['language_guided_curiosity_binary_reward'],
+            language_guided_curiosity_densify=baseline_prefill['language_guided_curiosity_densify'],
+            ne_count_based_exploration=baseline_prefill['language_guided_curiosity_non_episodic_count_based_exploration'],
+            ne_dampening_rate=baseline_prefill['language_guided_curiosity_non_episodic_dampening_rate'],
+            coverage_manipulation_metric=baseline_prefill['coverage_manipulation_metric'],
+            descr_type=baseline_prefill['language_guided_curiosity_descr_type'],
+        )
 
     wrapper_class = config.get_wrapper_class()
     venv = config.get_venv(wrapper_class)
@@ -113,19 +428,6 @@ def train(config):
         tdd_logsumexp_coef=config.tdd_logsumexp_coef,
         offpolicy_data=config.offpolicy_data,
     )
-
-    erelela_overrides = None
-    if config.erelela_config:
-        erelela_overrides = {
-            'ELA_reward_intrinsic_weight': config.erelela_intrinsic_weight,
-            'ELA_reward_extrinsic_weight': config.erelela_extrinsic_weight,
-            'ELA_feedbacks_type': config.erelela_feedbacks_type,
-        }
-        extra_overrides = parse_key_value_pairs(erelela_override)
-        erelela_overrides.update(extra_overrides)
-
-    config.use_baseline_ther_wrapper = bool(config.use_baseline_ther_wrapper)
-    config.baseline_ther_kwargs = parse_key_value_pairs(config.baseline_ther_arg)
 
     policy_kwargs.update(dict(
         erelela_config_path=config.erelela_config,
