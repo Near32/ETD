@@ -20,11 +20,11 @@ else:
     raise NotImplementedError
 
 # noinspection PyUnresolvedReferences
-# try:
-#     from pyglet.canvas.xlib import NoSuchDisplayException
-#     import gym_miniworld
-# except NoSuchDisplayException as e:
-#     raise ImportError('Please install `xvfb` to render the environment in a headless server')
+try:
+    import gym_miniworld
+except Exception as e:
+    pass
+
 from ppo_etd.env.minigrid_envs import *
 from ppo_etd.algo.ppo_model import PPOModel
 from ppo_etd.algo.ppo_trainer import PPOTrainer
