@@ -3,7 +3,7 @@
 GPU_ID=${1:-0}
 RUN_ID=${2:-10}
 
-EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=16vs2+ExprThr=40vs20+RGPeriod=512k+SEED=10"}
+EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=2+ExprThr=40vs20+CAMResample+RGPeriod=512k+SEED=10"}
 GAME_NAME="KeyCorridorS6R3"
 PROJECT_NAME="EReLELA-KeyCorridor-S6R3"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S6_R3_minigrid_wandb_benchmark_AgnosticPOMDPERELELA_config.yaml"
@@ -90,6 +90,7 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=ELA_rg_obverter_sampling_round_alternation_only=False \
     --erelela_override=ELA_rg_use_obverter_sampling=False \
     --erelela_override=ELA_rg_compactness_ambiguity_metric_language_specs=emergent+natural+color+shape+shuffled-emergent+shuffled-natural+shuffled-color+shuffled-shape \
+    --erelela_override=ELA_rg_compactness_ambiguity_metric_resampling=True \
     --erelela_override=ELA_rg_sanity_check_compactness_ambiguity_metric=False \
     --erelela_override=ELA_rg_shared_architecture=True \
     --erelela_override=ELA_rg_with_logits_mdl_principle=False \
@@ -116,7 +117,7 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=ELA_rg_training_adaptive_period=False \
     --erelela_override=ELA_rg_descriptive=True \
     --erelela_override=ELA_rg_use_curriculum_nbr_distractors=False \
-    --erelela_override=ELA_rg_nbr_epoch_per_update=16 \
+    --erelela_override=ELA_rg_nbr_epoch_per_update=2 \
     --erelela_override=ELA_rg_accuracy_threshold=90 \
     --erelela_override=ELA_rg_relative_expressivity_threshold=90 \
     --erelela_override=ELA_rg_expressivity_threshold=40 \
@@ -162,4 +163,3 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=benchmarking_record_episode_interval=4 \
     --erelela_override=benchmarking_interval=1.0e4 \
     --erelela_override=train_observation_budget=1.0e7
-
