@@ -7,19 +7,19 @@
 #MIOPEN_DEBUG_AMD_ASM_KERNELS_PERF_FILTERING=0 \
 xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" python ./ppo_etd/train.py \
     --game_name="FullMazeS5" \
-    --run_id=10 \
+    --run_id=40 \
     --int_rew_source="TDD" \
     --env_source=miniworld \
-    --exp_name test_tdd_mazeS5_nmep4_fdim512_lnorm_mlp1_ent1e-2_extR1_mlr1e-4 \
+    --exp_name="test_tdd_mazeS5_nmep16_fdim512_lnorm_mlp1_ent1e-2_extR10_mlr1e-4+SEED=40" \
     --use_wandb=1 \
     --project_name="MiniWorld-TDD-FullMazeS5" \
     --int_rew_coef=1e-2 \
-    --ext_rew_coef=1.0 \
+    --ext_rew_coef=10.0 \
     --model_learning_rate=1e-4 \
     --ent_coef=1e-2 \
     --max_grad_norm=0.5 \
     --tdd_aggregate_fn=min \
-    --model_n_epochs=4 \
+    --model_n_epochs=16 \
     --use_model_rnn=0 \
     --record_video=0 \
     --enable_plotting=0 \
