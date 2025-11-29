@@ -23,7 +23,7 @@ else:
 try:
     import gym_miniworld
 except Exception as e:
-    pass
+    raise ImportError(f"Failed to import gym_minigrid: {e}")
 
 from ppo_etd.env.minigrid_envs import *
 from ppo_etd.algo.ppo_model import PPOModel
@@ -42,6 +42,7 @@ ELA_BOOL_KEYS = {
     'ELA_rg_dataloader_shuffle',
     'ELA_rg_compactness_ambiguity_metric_with_ordering',
     'ELA_rg_compactness_ambiguity_metric_use_cumulative_scores',
+    'ELA_rg_compactness_ambiguity_metric_resampling',
     'ELA_rg_sanity_check_compactness_ambiguity_metric',
     'ELA_rg_training_adaptive_period',
     'ELA_rg_verbose',
@@ -93,6 +94,7 @@ DEFAULT_ERELELA_OVERRIDES = {
     'ELA_rg_compactness_ambiguity_metric_with_ordering': False,
     'ELA_rg_compactness_ambiguity_metric_use_cumulative_scores': True,
     'ELA_rg_compactness_ambiguity_metric_language_specs': 'emergent',
+    'ELA_rg_compactness_ambiguity_metric_resampling': False,
     'ELA_rg_sanity_check_compactness_ambiguity_metric': False,
     'ELA_rg_training_period': 1024,
     'ELA_rg_training_max_skip': -1,
