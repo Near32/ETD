@@ -23,7 +23,7 @@ else:
 try:
     import gym_miniworld
 except Exception as e:
-    pass
+    raise ImportError(f"Failed to import gym_minigrid: {e}")
 
 from ppo_etd.env.minigrid_envs import *
 from ppo_etd.algo.ppo_model import PPOModel
