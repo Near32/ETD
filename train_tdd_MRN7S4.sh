@@ -6,23 +6,25 @@
 #MIOPEN_DISABLE_BATCH_NORM_ASM_KERNELS=1 \
 #MIOPEN_DEBUG_AMD_ASM_KERNELS_PERF_FILTERING=0 \
 xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" python ./ppo_etd/train.py \
-    --game_name="KeyCorridorS6R3" \
-    --run_id=30 \
-    --int_rew_source="DEIR" \
-    --env_source=minigrid \
-    --exp_name="test_deir_kcs6r3_nproc16_nmep4_rnn1_bnorm_mlp1_ent1e-2_extR1+intR1e-2_mlr3e-4+ObsQueue=1e5+SEED=30" \
+    --exp_name="test_tdd_mrn7s4_nep4_bnorm_mlp1_ent5e-4_extR10_mlr1e-6 +SEED=10"\
+    --game_name="MultiRoom-N7-S4" \
+    --run_id=10 \
+    --int_rew_source="TDD" \
+    --env_source="minigrid" \
     --use_wandb=1 \
-    --project_name="MiniWorld-DEIR-KeyCorridorS6R3" \
     --int_rew_coef=1e-2 \
-    --ext_rew_coef=1.0 \
-    --model_learning_rate=3e-4 \
-    --ent_coef=1e-2 \
-    --dsc_obs_queue_len=10_000 \
+    --ext_rew_coef=10.0 \
+    --model_learning_rate=1e-6 \
+    --ent_coef=5e-4 \
     --max_grad_norm=0.5 \
     --tdd_aggregate_fn=min \
-    --model_n_epochs=4 \
+    --tdd_energy_fn="mrn_pot" \
+    --tdd_loss_fn="infonce_symmetric" \
+    --tdd_logsumexp_coef=0 \
+    --offpolicy_data=0 \
     --n_epochs=4 \
-    --use_model_rnn=1 \
+    --model_n_epochs=8 \
+    --use_model_rnn=0 \
     --record_video=0 \
     --enable_plotting=0 \
     --model_mlp_layers=1 \
@@ -35,8 +37,11 @@ xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" pytho
     --model_cnn_type=0 \
     --n_steps=512 \
     --num_processes=16 \
+    --features_dim=64 \
+    --model_features_dim=64 \
     --model_cnn_norm=BatchNorm \
     --model_mlp_norm=BatchNorm \
     --policy_cnn_norm=BatchNorm \
-    --policy_mlp_norm=BatchNorm 
+    --policy_mlp_norm=BatchNorm \
+ 
 
