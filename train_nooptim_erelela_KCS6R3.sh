@@ -1,9 +1,9 @@
 #!/bin/bash
 
 GPU_ID=${1:-0}
-RUN_ID=${2:-10}
+RUN_ID=${2:-20}
 
-EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=2+ExprThr=40vs20+CAMResample+RGPeriod=512k+SEED=10"}
+EXP_NAME=${3:-"erelela_noRGtraining_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=2+ExprThr=40vs20+CAMResample+RGPeriod=512k+SEED=20"}
 GAME_NAME="KeyCorridorS6R3"
 PROJECT_NAME="EReLELA-KeyCorridor-S6R3"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S6_R3_minigrid_wandb_benchmark_AgnosticPOMDPERELELA_config.yaml"
@@ -18,7 +18,7 @@ ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_SmallETD_benchmark_Ag
 CUDA_VISIBLE_DEVICES=${GPU_ID} \
 PYTHONPATH="./" \
 xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" \
-python -m ipdb -c c ./ppo_etd/train.py \
+python ./ppo_etd/train.py \
     --exp_name ${EXP_NAME} \
     --project_name ${PROJECT_NAME} \
     --game_name=${GAME_NAME} \
@@ -83,7 +83,7 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=use_HER=False \
     --erelela_override=goal_oriented=False \
     --erelela_override=ELA_with_rg_training=True \
-    --erelela_override=ELA_with_rg_optimize=True \
+    --erelela_override=ELA_with_rg_optimize=False \
     --erelela_override=ELA_rg_use_cuda=True \
     --erelela_override=ELA_rg_dataloader_shuffle=True \
     --erelela_override=ELA_rg_dataloader_num_worker=4 \
@@ -120,7 +120,7 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=ELA_rg_training_adaptive_period=False \
     --erelela_override=ELA_rg_descriptive=True \
     --erelela_override=ELA_rg_use_curriculum_nbr_distractors=False \
-    --erelela_override=ELA_rg_nbr_epoch_per_update=2 \
+    --erelela_override=ELA_rg_nbr_epoch_per_update=1 \
     --erelela_override=ELA_rg_accuracy_threshold=90 \
     --erelela_override=ELA_rg_relative_expressivity_threshold=90 \
     --erelela_override=ELA_rg_expressivity_threshold=40 \

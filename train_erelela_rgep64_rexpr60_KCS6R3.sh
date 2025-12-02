@@ -3,7 +3,7 @@
 GPU_ID=${1:-0}
 RUN_ID=${2:-10}
 
-EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=2+ExprThr=40vs20+CAMResample+RGPeriod=512k+SEED=10"}
+EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=64vs2+ExprThr=60vs20+CAMResample+RGPeriod=512k+SEED=10"}
 GAME_NAME="KeyCorridorS6R3"
 PROJECT_NAME="EReLELA-KeyCorridor-S6R3"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S6_R3_minigrid_wandb_benchmark_AgnosticPOMDPERELELA_config.yaml"
@@ -120,10 +120,10 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=ELA_rg_training_adaptive_period=False \
     --erelela_override=ELA_rg_descriptive=True \
     --erelela_override=ELA_rg_use_curriculum_nbr_distractors=False \
-    --erelela_override=ELA_rg_nbr_epoch_per_update=2 \
+    --erelela_override=ELA_rg_nbr_epoch_per_update=64 \
     --erelela_override=ELA_rg_accuracy_threshold=90 \
     --erelela_override=ELA_rg_relative_expressivity_threshold=90 \
-    --erelela_override=ELA_rg_expressivity_threshold=40 \
+    --erelela_override=ELA_rg_expressivity_threshold=60 \
     --erelela_override=ELA_rg_nbr_train_distractors=256 \
     --erelela_override=ELA_rg_nbr_test_distractors=3 \
     --erelela_override=ELA_replay_capacity=8192 \
