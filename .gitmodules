@@ -1,3 +1,6 @@
 [submodule "ppo_etd/env/gym_miniworld"]
 	path = ppo_etd/env/gym_miniworld
 	url = https://github.com/liuqh16/Miniworld.git
+[submodule "ppo_etd/env/miniworld"]
+	path = ppo_etd/env/miniworld
+	url = https://github.com/Near32/Miniworld.git
