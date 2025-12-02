@@ -196,6 +196,8 @@ DEFAULT_ERELELA_OVERRIDES = {
     'ELA_rg_dis_metric_resampling': True,
     'ELA_rg_seed': 1,
     'ELA_rg_metric_active_factors_only': True,
+    'THER_observe_achieved_goal': False,
+    'MiniWorld_symbolic_image': False,
 }
 
 
@@ -254,6 +256,8 @@ def parse_key_value_pairs(pairs, erelela_config_path=None, prefill=None):
                 parsed_value = ast.literal_eval(value)
             except (ValueError, SyntaxError):
                 parsed_value = value
+            if "None" in value:
+                parsed_value = None
             result[key] = parsed_value
 
     return result

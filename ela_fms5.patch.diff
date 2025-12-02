@@ -1,0 +1,99 @@
+Submodule ppo_etd/env/gym_miniworld contains modified content
+diff --git a/ppo_etd/env/gym_miniworld/setup.py b/ppo_etd/env/gym_miniworld/setup.py
+index 4520997..992e018 100644
+--- a/ppo_etd/env/gym_miniworld/setup.py
++++ b/ppo_etd/env/gym_miniworld/setup.py
+@@ -45,7 +45,8 @@ setup(
+     long_description=long_description,
+     long_description_content_type="text/markdown",
+     keywords=["Environment", "Agent", "RL", "Gym", "Robotics", "3D"],
+-    python_requires=">=3.7, <3.11",
++    #python_requires=">=3.7, <3.11",
++    python_requires=">=3.7",
+     packages=["gym_miniworld", "gym_miniworld.envs"],
+     package_data={
+         "gym_miniworld": [
+diff --git a/ppo_etd/train.py b/ppo_etd/train.py
+index 6143cf7..4d96f6e 100644
+--- a/ppo_etd/train.py
++++ b/ppo_etd/train.py
+@@ -196,6 +196,8 @@ DEFAULT_ERELELA_OVERRIDES = {
+     'ELA_rg_dis_metric_resampling': True,
+     'ELA_rg_seed': 1,
+     'ELA_rg_metric_active_factors_only': True,
++    'THER_observe_achieved_goal': False,
++    'MiniWorld_symbolic_image': False,
+ }
+ 
+ 
+@@ -254,6 +256,8 @@ def parse_key_value_pairs(pairs, erelela_config_path=None, prefill=None):
+                 parsed_value = ast.literal_eval(value)
+             except (ValueError, SyntaxError):
+                 parsed_value = value
++            if "None" in value:
++                parsed_value = None
+             result[key] = parsed_value
+ 
+     return result
+diff --git a/ppo_etd/utils/configs.py b/ppo_etd/utils/configs.py
+index 12b2e99..86c0c80 100644
+--- a/ppo_etd/utils/configs.py
++++ b/ppo_etd/utils/configs.py
+@@ -1,6 +1,7 @@
+ import logging
+ import os
+ import time
++import inspect
+ 
+ import torch as th
+ import random
+@@ -11,6 +12,49 @@ from torch import nn
+ from gym_minigrid.wrappers import ImgObsWrapper, FullyObsWrapper, ReseedWrapper
+ from regym.util.wrappers import baseline_ther_wrapper
+ 
++_GYM_RNG_ORIGINAL_CTOR = None
++_GYM_RNG_CLASS = None
++
++
++def _gym_rng_pickling_ctor(bit_generator_name="MT19937", bit_generator_ctor=None, *args, **kwargs):
++    if bit_generator_ctor is None:
++        if _GYM_RNG_ORIGINAL_CTOR is None:
++            raise RuntimeError("Gym RNG patch applied without original ctor snapshot")
++        return _GYM_RNG_ORIGINAL_CTOR(bit_generator_name)
++    if _GYM_RNG_CLASS is None:
++        raise RuntimeError("Gym RNG patch applied without RNG class reference")
++    bit_generator = bit_generator_ctor(bit_generator_name)
++    return _GYM_RNG_CLASS(bit_generator)
++
++
++def _patch_gym_rng_pickle_ctor():
++    """Ensure gym's RNG can be unpickled by subprocess vec envs."""
++    global _GYM_RNG_ORIGINAL_CTOR, _GYM_RNG_CLASS
++    try:
++        from gym.utils import seeding as gym_seeding
++    except Exception:
++        return
++
++    rng_cls = getattr(gym_seeding, "RandomNumberGenerator", None)
++    ctor = getattr(rng_cls, "_generator_ctor", None) if rng_cls else None
++    if ctor is None:
++        return
++
++    try:
++        needs_patch = len(inspect.signature(ctor).parameters) < 2
++    except (TypeError, ValueError):
++        needs_patch = True
++
++    if not needs_patch:
++        return
++
++    _GYM_RNG_ORIGINAL_CTOR = ctor
++    _GYM_RNG_CLASS = rng_cls
++    rng_cls._generator_ctor = staticmethod(_gym_rng_pickling_ctor)
++
++
++_patch_gym_rng_pickle_ctor()
++
+ from ppo_etd.utils.wandb_utils import ensure_wandb_initialized
+ 
+ 

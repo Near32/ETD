@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import inspect
 
 import torch as th
 import random
@@ -10,6 +11,49 @@ import numpy as np
 from torch import nn
 from gym_minigrid.wrappers import ImgObsWrapper, FullyObsWrapper, ReseedWrapper
 from regym.util.wrappers import baseline_ther_wrapper
+
+_GYM_RNG_ORIGINAL_CTOR = None
+_GYM_RNG_CLASS = None
+
+
+def _gym_rng_pickling_ctor(bit_generator_name="MT19937", bit_generator_ctor=None, *args, **kwargs):
+    if bit_generator_ctor is None:
+        if _GYM_RNG_ORIGINAL_CTOR is None:
+            raise RuntimeError("Gym RNG patch applied without original ctor snapshot")
+        return _GYM_RNG_ORIGINAL_CTOR(bit_generator_name)
+    if _GYM_RNG_CLASS is None:
+        raise RuntimeError("Gym RNG patch applied without RNG class reference")
+    bit_generator = bit_generator_ctor(bit_generator_name)
+    return _GYM_RNG_CLASS(bit_generator)
+
+
+def _patch_gym_rng_pickle_ctor():
+    """Ensure gym's RNG can be unpickled by subprocess vec envs."""
+    global _GYM_RNG_ORIGINAL_CTOR, _GYM_RNG_CLASS
+    try:
+        from gym.utils import seeding as gym_seeding
+    except Exception:
+        return
+
+    rng_cls = getattr(gym_seeding, "RandomNumberGenerator", None)
+    ctor = getattr(rng_cls, "_generator_ctor", None) if rng_cls else None
+    if ctor is None:
+        return
+
+    try:
+        needs_patch = len(inspect.signature(ctor).parameters) < 2
+    except (TypeError, ValueError):
+        needs_patch = True
+
+    if not needs_patch:
+        return
+
+    _GYM_RNG_ORIGINAL_CTOR = ctor
+    _GYM_RNG_CLASS = rng_cls
+    rng_cls._generator_ctor = staticmethod(_gym_rng_pickling_ctor)
+
+
+_patch_gym_rng_pickle_ctor()
 
 from ppo_etd.utils.wandb_utils import ensure_wandb_initialized
 
