@@ -142,22 +142,19 @@ class CustomDummyVecEnv(DummyVecEnv, CustomVecEnvVisualMixin):
         self.waiting = False
         self.seeds: Optional[List[int]] = None
 
-    def deprecated_set_seeds(self, seeds: List[int] = None) -> List[Union[None, int]]:
+    def set_seeds(self, seeds: List[int] = None) -> List[Union[None, int]]:
         self.seeds = seeds
         if seeds is None:
             return [None for _ in self.envs]
-        for env, seed in zip(self.envs, seeds):
-            env.reset(seed=int(seed))
+        for idx, env in enumerate(self.envs):
+            env.seed(int(seeds[idx]))
         return [None for _ in self.envs]
 
     def get_seeds(self) -> List[Union[None, int]]:
         return self.seeds
 
     def _reset_env(self, env_id: int, seed: Optional[int]) -> Tuple[VecEnvObs, Dict[str, Any]]:
-        reset_kwargs = {}
-        if seed is not None:
-            reset_kwargs["seed"] = int(seed)
-        result = self.envs[env_id].reset(**reset_kwargs)
+        result = self.envs[env_id].reset()
         if isinstance(result, tuple) and len(result) == 2:
             return result
         return result, {}
