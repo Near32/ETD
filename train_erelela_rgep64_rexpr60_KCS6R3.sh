@@ -3,7 +3,7 @@
 GPU_ID=${1:-0}
 RUN_ID=${2:-10}
 
-EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=2+ExprThr=40vs20+CAMResample+RGPeriod=512k+SEED=10"}
+EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=64vs2+ExprThr=60vs20+CAMResample+RGPeriod=512k+SEED=10"}
 GAME_NAME="KeyCorridorS6R3"
 PROJECT_NAME="EReLELA-KeyCorridor-S6R3"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S6_R3_minigrid_wandb_benchmark_AgnosticPOMDPERELELA_config.yaml"
@@ -18,7 +18,7 @@ ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_SmallETD_benchmark_Ag
 CUDA_VISIBLE_DEVICES=${GPU_ID} \
 PYTHONPATH="./" \
 xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" \
-python -m ipdb -c c ./ppo_etd/train.py \
+python ./ppo_etd/train.py \
     --exp_name ${EXP_NAME} \
     --project_name ${PROJECT_NAME} \
     --game_name=${GAME_NAME} \
@@ -120,10 +120,10 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=ELA_rg_training_adaptive_period=False \
     --erelela_override=ELA_rg_descriptive=True \
     --erelela_override=ELA_rg_use_curriculum_nbr_distractors=False \
-    --erelela_override=ELA_rg_nbr_epoch_per_update=2 \
+    --erelela_override=ELA_rg_nbr_epoch_per_update=64 \
     --erelela_override=ELA_rg_accuracy_threshold=90 \
     --erelela_override=ELA_rg_relative_expressivity_threshold=90 \
-    --erelela_override=ELA_rg_expressivity_threshold=40 \
+    --erelela_override=ELA_rg_expressivity_threshold=60 \
     --erelela_override=ELA_rg_nbr_train_distractors=256 \
     --erelela_override=ELA_rg_nbr_test_distractors=3 \
     --erelela_override=ELA_replay_capacity=8192 \
@@ -145,7 +145,7 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=batch_size=32 \
     --erelela_override=min_capacity=4e3 \
     --erelela_override=min_handled_experiences=2.8e4 \
-    --erelela_override=replay_capacity=2.0e4 \
+    --erelela_override=replay_capacity=2.0e3 \
     --erelela_override=learning_rate=1e-4 \
     --erelela_override=sequence_replay_burn_in_ratio=0.5 \
     --erelela_override=weights_entropy_lambda=0.0 \

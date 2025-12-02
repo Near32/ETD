@@ -3,14 +3,14 @@
 GPU_ID=${1:-0}
 RUN_ID=${2:-10}
 
-EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=2+ExprThr=40vs20+CAMResample+RGPeriod=512k+SEED=10"}
-GAME_NAME="KeyCorridorS6R3"
-PROJECT_NAME="EReLELA-KeyCorridor-S6R3"
+EXP_NAME=${3:-"erelela_multiroom_n7s4+ExtR=1.0+IntR=1e-2+RGEp=2+ExprThr=40vs20+CAMResample+RGPeriod=512k+SEED=10"}
+GAME_NAME="MultiRoom-N7-S4"
+PROJECT_NAME="EReLELA-MultiRoom-N7-S4"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S6_R3_minigrid_wandb_benchmark_AgnosticPOMDPERELELA_config.yaml"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S3_R3_symbolic_minigrid_wandb_ETD_benchmark_AgnosticPOMDPERELELA+R2D2_config.yaml"
 #ERELELA_CONFIG="../../IMPALA/RIDE/configs/keycorridor_S3_R3_minigrid_wandb_RIDE_benchmark_AgnosticPOMDPERELELA_config.yaml"
 #ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_ETD_benchmark_AgnosticPOMDPERELELA_config.yaml"
-ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_SmallETD_benchmark_AgnosticPOMDPERELELA_config.yaml"
+ERELELA_CONFIG="./configs/multiroom_N7_S4_minigrid_wandb_SmallETD_benchmark_AgnosticPOMDPERELELA_config.yaml"
 
 #MIOPEN_DEBUG_DISABLE_FIND_DB=1 \
 #MIOPEN_FIND_MODE=NORMAL \
@@ -18,7 +18,7 @@ ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_SmallETD_benchmark_Ag
 CUDA_VISIBLE_DEVICES=${GPU_ID} \
 PYTHONPATH="./" \
 xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" \
-python -m ipdb -c c ./ppo_etd/train.py \
+python ./ppo_etd/train.py \
     --exp_name ${EXP_NAME} \
     --project_name ${PROJECT_NAME} \
     --game_name=${GAME_NAME} \
@@ -51,11 +51,8 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --model_mlp_norm=BatchNorm \
     --policy_cnn_norm=BatchNorm \
     --model_cnn_norm=BatchNorm \
-    --record_video=1 \
-    --rec_interval=10 \
-    --video_length=1024 \
-    --enable_plotting=1 \
-    --plot_interval=10 \
+    --record_video=0 \
+    --enable_plotting=0 \
     --use_baseline_ther_wrapper=1 \
     --erelela_override=success_threshold=0.01 \
     --erelela_override=add_rgb_wrapper=False \

@@ -565,6 +565,14 @@ class CustomMultiRoomEnv(MiniGridEnv):
             return 1
         return 1 - 0.9 * (self.step_count / self.max_steps)
 
+class MultiRoomEnvN7S4(CustomMultiRoomEnv):
+    def __init__(self):
+        super().__init__(
+            minNumRooms=12,
+            maxNumRooms=12,
+            agent_view_size=7,
+            maxRoomSize=4,
+        )
 class MultiRoomEnvN12(CustomMultiRoomEnv):
     def __init__(self):
         super().__init__(
@@ -859,6 +867,11 @@ class MultiRoomEnvN30MS10kNP(CustomMultiRoomEnv):
             max_steps=10000,
             disable_penalty=True,
         )
+
+register(
+    id="MiniGrid-MultiRoom-N7-S4-v0",
+    entry_point='ppo_etd.env.minigrid_envs:MultiRoomEnvN7S4',
+)
 
 register(
     id='MiniGrid-MultiRoom-N12-v0',
