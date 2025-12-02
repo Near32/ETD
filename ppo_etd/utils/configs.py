@@ -317,7 +317,8 @@ class TrainingConfig():
                 n_envs=self.num_processes,
                 seed=self.run_id,
                 env_kwargs={'image_noise_scale': self.image_noise_scale},
-                vec_env_cls=SubprocVecEnv,
+                #vec_env_cls=SubprocVecEnv,
+                vec_env_cls=DummyVecEnv,
                 monitor_dir=self.log_dir,
             )
         elif self.env_source == EnvSrc.PandaGym:
