@@ -84,6 +84,7 @@ from datetime import datetime
 from ppo_etd.algo.common_models.cnns import BatchNormCnnFeaturesExtractor, LayerNormCnnFeaturesExtractor, \
     CnnFeaturesExtractor, MLPFeatureExtractor
 from ppo_etd.env.subproc_vec_env import CustomSubprocVecEnv
+from ppo_etd.env.custom_vec_envs import CustomDummyVecEnv
 from ppo_etd.utils.enum_types import EnvSrc, NormType, ModelType, DecayType
 from wandb.integration.sb3 import WandbCallback
 
@@ -239,11 +240,11 @@ class TrainingConfig():
 
     def get_venv(self, wrapper_class=None):
         if self.env_source == EnvSrc.MiniGrid:
-            #from stable_baselines3.common.vec_env import DummyVecEnv
             venv = make_vec_env(
                 self.env_name,
                 wrapper_class=wrapper_class,
-                vec_env_cls=CustomSubprocVecEnv,
+                #vec_env_cls=CustomSubprocVecEnv,
+                vec_env_cls=CustomDummyVecEnv,
                 #vec_env_cls=DummyVecEnv,
                 n_envs=self.num_processes,
                 monitor_dir=self.log_dir,
