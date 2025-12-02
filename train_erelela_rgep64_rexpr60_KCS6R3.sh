@@ -18,7 +18,7 @@ ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_SmallETD_benchmark_Ag
 CUDA_VISIBLE_DEVICES=${GPU_ID} \
 PYTHONPATH="./" \
 xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" \
-python -m ipdb -c c ./ppo_etd/train.py \
+python ./ppo_etd/train.py \
     --exp_name ${EXP_NAME} \
     --project_name ${PROJECT_NAME} \
     --game_name=${GAME_NAME} \
@@ -145,7 +145,7 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=batch_size=32 \
     --erelela_override=min_capacity=4e3 \
     --erelela_override=min_handled_experiences=2.8e4 \
-    --erelela_override=replay_capacity=2.0e4 \
+    --erelela_override=replay_capacity=2.0e3 \
     --erelela_override=learning_rate=1e-4 \
     --erelela_override=sequence_replay_burn_in_ratio=0.5 \
     --erelela_override=weights_entropy_lambda=0.0 \
