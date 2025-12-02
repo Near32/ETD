@@ -212,7 +212,9 @@ class PPORolloutBuffer(BaseBuffer):
         self.new_observations[self.pos] = np.array(new_obs).copy()
         self.last_policy_mems[self.pos] = last_policy_mem.clone().cpu().numpy()
         self.last_model_mems[self.pos] = last_model_mem.clone().cpu().numpy()
-        self.actions[self.pos] = np.array(action).copy()
+        # Match SB3 behavior: force action shape (n_envs, action_dim) so discrete envs store correctly.
+        reshaped_action = np.array(action).reshape((self.n_envs, self.action_dim))
+        self.actions[self.pos] = reshaped_action.copy()
         self.rewards[self.pos] = np.array(reward).copy()
         self.intrinsic_rewards[self.pos] = np.array(intrinsic_reward).copy()
         self.episode_starts[self.pos] = np.array(episode_start).copy()

@@ -20,10 +20,11 @@ else:
     raise NotImplementedError
 
 # noinspection PyUnresolvedReferences
-try:
-    import gym_miniworld
-except Exception as e:
-    pass
+#try:
+#    import gym_miniworld
+#    #import miniworld
+#except Exception as e:
+#    pass
 
 from ppo_etd.env.minigrid_envs import *
 from ppo_etd.algo.ppo_model import PPOModel
@@ -43,6 +44,7 @@ ELA_BOOL_KEYS = {
     'ELA_rg_compactness_ambiguity_metric_with_ordering',
     'ELA_rg_compactness_ambiguity_metric_use_cumulative_scores',
     'ELA_rg_compactness_ambiguity_metric_resampling',
+    'ELA_rg_compactness_ambiguity_metric_resample_progress',
     'ELA_rg_sanity_check_compactness_ambiguity_metric',
     'ELA_rg_training_adaptive_period',
     'ELA_rg_verbose',
@@ -95,6 +97,8 @@ DEFAULT_ERELELA_OVERRIDES = {
     'ELA_rg_compactness_ambiguity_metric_use_cumulative_scores': True,
     'ELA_rg_compactness_ambiguity_metric_language_specs': 'emergent',
     'ELA_rg_compactness_ambiguity_metric_resampling': False,
+    'ELA_rg_compactness_ambiguity_metric_resample_batch_size': 64,
+    'ELA_rg_compactness_ambiguity_metric_resample_progress': False,
     'ELA_rg_sanity_check_compactness_ambiguity_metric': False,
     'ELA_rg_training_period': 1024,
     'ELA_rg_training_max_skip': -1,
@@ -196,6 +200,8 @@ DEFAULT_ERELELA_OVERRIDES = {
     'ELA_rg_dis_metric_resampling': True,
     'ELA_rg_seed': 1,
     'ELA_rg_metric_active_factors_only': True,
+    'THER_observe_achieved_goal': False,
+    'MiniWorld_symbolic_image': False,
 }
 
 
@@ -254,6 +260,8 @@ def parse_key_value_pairs(pairs, erelela_config_path=None, prefill=None):
                 parsed_value = ast.literal_eval(value)
             except (ValueError, SyntaxError):
                 parsed_value = value
+            if "None" in value:
+                parsed_value = None
             result[key] = parsed_value
 
     return result
@@ -625,6 +633,10 @@ def train(config):
 @click.option('--count_feedbacks_type', default='normal', 
     #choices=['normal', 'across-training', 'count-based', 'across-training-normal'],
     type=str, help='Type of count-based feedbacks')
+@click.option('--force_gym_env', default=0, type=int,
+    help='Force using Gym environment instead of custom environments')
+@click.option('--use_legacy_env_wrapping', default=0, type=int,
+    help='Disable StepAPI/Reset wrappers and rely on legacy env behavior (0/1)')
 def main(
     run_id, exp_name, use_wandb, log_dir, total_steps, features_dim, model_features_dim, learning_rate, model_learning_rate,
     num_processes, batch_size, n_steps, env_source, game_name, project_name, map_size, can_see_walls, fully_obs,
@@ -639,6 +651,7 @@ def main(
     model_gru_norm, activation_fn, cnn_activation_fn, gru_layers, optimizer, optim_eps, adam_beta1, adam_beta2,
     rmsprop_alpha, rmsprop_momentum, write_local_logs, enable_plotting, plot_interval, plot_colormap, record_video,
     rec_interval, video_length, log_dsc_verbose, env_render, use_status_predictor, count_feedbacks_type,
+    force_gym_env, use_legacy_env_wrapping,
 ):
     set_random_seed(run_id, using_cuda=True)
     args = locals().items()

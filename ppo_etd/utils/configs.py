@@ -1,25 +1,101 @@
 import logging
 import os
 import time
+import inspect
 
 import torch as th
 import random
 import wandb
-import gym
+import gym as classic_gym
+import gymnasium as gym
+
 import numpy as np
 from torch import nn
 from gym_minigrid.wrappers import ImgObsWrapper, FullyObsWrapper, ReseedWrapper
 from regym.util.wrappers import baseline_ther_wrapper
+from stable_baselines3.common.vec_env.patch_gym import _patch_env
+
+_GYM_RNG_ORIGINAL_CTOR = None
+_GYM_RNG_CLASS = None
+
+
+def _gym_rng_pickling_ctor(bit_generator_name="MT19937", bit_generator_ctor=None, *args, **kwargs):
+    if bit_generator_ctor is None:
+        if _GYM_RNG_ORIGINAL_CTOR is None:
+            raise RuntimeError("Gym RNG patch applied without original ctor snapshot")
+        return _GYM_RNG_ORIGINAL_CTOR(bit_generator_name)
+    if _GYM_RNG_CLASS is None:
+        raise RuntimeError("Gym RNG patch applied without RNG class reference")
+    bit_generator = bit_generator_ctor(bit_generator_name)
+    return _GYM_RNG_CLASS(bit_generator)
+
+
+def _patch_gym_rng_pickle_ctor():
+    """Ensure gym's RNG can be unpickled by subprocess vec envs."""
+    global _GYM_RNG_ORIGINAL_CTOR, _GYM_RNG_CLASS
+    try:
+        from gym.utils import seeding as gym_seeding
+    except Exception:
+        return
+
+    rng_cls = getattr(gym_seeding, "RandomNumberGenerator", None)
+    ctor = getattr(rng_cls, "_generator_ctor", None) if rng_cls else None
+    if ctor is None:
+        return
+
+    try:
+        needs_patch = len(inspect.signature(ctor).parameters) < 2
+    except (TypeError, ValueError):
+        needs_patch = True
+
+    if not needs_patch:
+        return
+
+    _GYM_RNG_ORIGINAL_CTOR = ctor
+    _GYM_RNG_CLASS = rng_cls
+    rng_cls._generator_ctor = staticmethod(_gym_rng_pickling_ctor)
+
+
+_patch_gym_rng_pickle_ctor()
+
+
+def _ensure_classic_gym_render_mode_attr(default_mode=None):
+    """Older classic gym envs miss `render_mode`, which shimmy expects."""
+    if getattr(classic_gym, "__render_mode_attr_patched__", False):
+        return
+
+    base_class_names = (
+        "Env",
+        "GoalEnv",
+        "Wrapper",
+        "ObservationWrapper",
+        "RewardWrapper",
+        "ActionWrapper",
+    )
+    patched_any = False
+    for cls_name in base_class_names:
+        cls = getattr(classic_gym, cls_name, None)
+        if cls is None or hasattr(cls, "render_mode"):
+            continue
+        setattr(cls, "render_mode", default_mode)
+        patched_any = True
+
+    if patched_any:
+        setattr(classic_gym, "__render_mode_attr_patched__", True)
+
+
+_ensure_classic_gym_render_mode_attr()
 
 from ppo_etd.utils.wandb_utils import ensure_wandb_initialized
 
 
-class ResetObsInfoCompatibilityWrapper(gym.Wrapper):
+class ResetObsInfoCompatibilityGymnasiumWrapper(gym.Wrapper):
     """Ensure env.reset returns only observations for SB3 VecEnvs."""
 
-    def __init__(self, env):
+    def __init__(self, env, reset_info=False):
         super().__init__(env)
         self.last_reset_info = None
+        self.reset_info = reset_info
 
     @staticmethod
     def _unwrap_first(value):
@@ -52,7 +128,10 @@ class ResetObsInfoCompatibilityWrapper(gym.Wrapper):
             obs = self._unwrap_first(obs)
             info = self._unwrap_first(info)
             self.last_reset_info = info
-            return obs
+            return obs if not self.reset_info else (obs, info)
+        else:
+            if self.reset_info:
+                result = (result, {})
         self.last_reset_info = None
         return result
 
@@ -64,12 +143,132 @@ class ResetObsInfoCompatibilityWrapper(gym.Wrapper):
             done = terminated or truncated
         else:
             obs, reward, done, info = result
+            truncated = done
 
         obs = self._unwrap_first(obs)
         reward = self._unwrap_first(reward)
         done = bool(self._unwrap_first(done))
+        truncated = bool(self._unwrap_first(truncated))
         info = self._unwrap_first(info)
-        return obs, reward, done, info
+        if len(result) == 5:
+            return obs, reward, done, truncated, info
+        else:
+            return obs, reward, done, info
+
+class ResetObsInfoCompatibilityGymWrapper(classic_gym.Wrapper):
+    """Ensure env.reset returns only observations for SB3 VecEnvs."""
+
+    def __init__(self, env, reset_info=False):
+        super().__init__(env)
+        self.last_reset_info = None
+        self.reset_info = reset_info
+
+    @staticmethod
+    def _unwrap_first(value):
+        if isinstance(value, (list, tuple)) and len(value) > 0:
+            return value[0]
+        return value
+
+    @staticmethod
+    def _to_numpy(value):
+        if isinstance(value, dict):
+            return {k: ResetObsInfoCompatibilityWrapper._to_numpy(v) for k, v in value.items()}
+        if hasattr(value, "detach") and hasattr(value, "cpu") and hasattr(value, "numpy"):
+            return value.detach().cpu().numpy()
+        if isinstance(value, (np.ndarray, np.number)):
+            return value
+        try:
+            return np.asarray(value)
+        except Exception:
+            return value
+
+    def _format_actions(self, action):
+        if isinstance(action, (list, tuple)):
+            return [self._to_numpy(act) for act in action]
+        return [self._to_numpy(action)]
+
+    def reset(self, **kwargs):
+        result = self.env.reset(**kwargs)
+        if isinstance(result, tuple) and len(result) == 2:
+            obs, info = result
+            obs = self._unwrap_first(obs)
+            info = self._unwrap_first(info)
+            self.last_reset_info = info
+            return obs if not self.reset_info else (obs, info)
+        else:
+            if self.reset_info:
+                result = (result, {})
+        self.last_reset_info = None
+        return result
+
+    def step(self, action, **kwargs):
+        env_action = self._format_actions(action)
+        result = self.env.step(env_action, **kwargs)
+        if isinstance(result, tuple) and len(result) == 5:
+            obs, reward, terminated, truncated, info = result
+            done = terminated or truncated
+        else:
+            obs, reward, done, info = result
+            truncated = done
+
+        obs = self._unwrap_first(obs)
+        reward = self._unwrap_first(reward)
+        done = bool(self._unwrap_first(done))
+        truncated = bool(self._unwrap_first(truncated))
+        info = self._unwrap_first(info)
+        if len(result) == 5:
+            return obs, reward, done, truncated, info
+        else:
+            return obs, reward, done, info
+
+class StepAPICompatibilityWrapper(gym.Wrapper):
+    """Force classic gym environments to follow the Gymnasium step/reset API."""
+
+    def reset(self, **kwargs):
+        result = None
+        if "return_info" in kwargs:
+            result = self.env.reset(**kwargs)
+        else:
+            try:
+                result = self.env.reset(return_info=True, **kwargs)
+            except TypeError as exc:
+                if "return_info" not in str(exc):
+                    raise
+                result = self.env.reset(**kwargs)
+        if isinstance(result, tuple) and len(result) == 2:
+            obs, info = result
+        else:
+            obs, info = result, {}
+        info = {} if info is None else info
+        return obs, info
+
+    def step(self, action, **kwargs):
+        result = self.env.step(action, **kwargs)
+        if not isinstance(result, tuple):
+            raise ValueError(
+                f"Expected env.step to return a tuple, got {type(result)}"
+            )
+
+        if len(result) == 5:
+            obs, reward, terminated, truncated, info = result
+        elif len(result) == 4:
+            obs, reward, done, info = result
+            info = {} if info is None else info
+            truncated = bool(info.get("TimeLimit.truncated", False)) if isinstance(info, dict) else False
+            terminated = bool(done) and not truncated
+        else:
+            raise ValueError(
+                f"Expected env.step to return 4 or 5 values, got {len(result)}"
+            )
+
+        info = {} if info is None else info
+        terminated = bool(terminated)
+        truncated = bool(truncated)
+        if isinstance(info, dict) and info.get("episode") is not None and not (terminated or truncated):
+            # Some legacy wrappers drop the done flag but still forward the Monitor episode summary.
+            terminated = True
+
+        return obs, reward, terminated, truncated, info
 
 
 # from procgen import ProcgenEnv
@@ -96,6 +295,8 @@ class TrainingConfig():
     def __init__(self):
         self.dtype = th.float32
         self.device = th.device('cuda' if th.cuda.is_available() else 'cpu')
+        # By default rely on the new StepAPI/Reset wrappers unless explicitly disabled
+        self.use_legacy_env_wrapping = False
 
     def init_meta_info(self):
         self.file_path = __file__
@@ -188,7 +389,7 @@ class TrainingConfig():
                 _seeds = [self.fixed_seed]
                 wrapper_class = lambda x: ImgObsWrapper(ReseedWrapper(x, seeds=_seeds))
         elif self.env_source == EnvSrc.MiniWorld:
-            wrapper_class = None
+            wrapper_class = None # lambda x: ResetObsInfoCompatibilityGymnasiumWrapper(x) if self.force_gym_env else x
         elif self.env_source == EnvSrc.MuJoCo:
             wrapper_class = lambda x: NormalizeObservation(x)
         elif self.env_source == EnvSrc.Crafter:
@@ -199,7 +400,10 @@ class TrainingConfig():
                 save_episode=False,
             )
         wrapper_class = self._maybe_apply_baseline_wrapper(wrapper_class)
-        return self._attach_wandb_initializer(wrapper_class)
+        wrapper_class = self._attach_wandb_initializer(wrapper_class)
+        if getattr(self, 'use_legacy_env_wrapping', False):
+            return wrapper_class
+        return self._attach_step_api_wrapper(wrapper_class)
 
     def _maybe_apply_baseline_wrapper(self, wrapper_class):
         if not getattr(self, 'use_baseline_ther_wrapper', False):
@@ -221,7 +425,11 @@ class TrainingConfig():
             # We no longer combine, and expect the baseline wrapper to be applied directly
             # The baseline wrapper should handle the base wrapper internally.
             wrapped_env = baseline_wrapper(env)
-            return ResetObsInfoCompatibilityWrapper(wrapped_env)
+            if self.force_gym_env:
+                wrapped_env = ResetObsInfoCompatibilityGymWrapper(wrapped_env, reset_info=True)
+            else:
+                wrapped_env = ResetObsInfoCompatibilityGymnasiumWrapper(wrapped_env, reset_info=True)
+            return wrapped_env
 
         return combined
 
@@ -236,6 +444,15 @@ class TrainingConfig():
             return base_wrapper(env)
 
         return _wandb_wrapper
+
+    def _attach_step_api_wrapper(self, wrapper_class):
+        def _step_api_wrapper(env, base_wrapper=wrapper_class):
+            base_env = base_wrapper(env) if base_wrapper is not None else env
+            if isinstance(base_env, StepAPICompatibilityWrapper):
+                return base_env
+            return StepAPICompatibilityWrapper(base_env)
+
+        return _step_api_wrapper
 
     def get_venv(self, wrapper_class=None):
         if self.env_source == EnvSrc.MiniGrid:
@@ -268,12 +485,25 @@ class TrainingConfig():
                 monitor_dir=self.log_dir,
             )
         elif self.env_source == EnvSrc.MiniWorld:
+            env_id = self.env_name
+            if self.force_gym_env:
+                import gym_miniworld
+            else:
+                import miniworld
+            def classic_gym_env(**kwargs):
+                import gym_miniworld
+                env = _patch_env(classic_gym.make(env_id, **kwargs))
+                return wrapper_class(env) if wrapper_class is not None else env
+
             venv = make_vec_env(
-                self.env_name,
+                #env_id=env_id,
+                env_id=classic_gym_env if self.force_gym_env else env_id,
                 n_envs=self.num_processes,
                 seed=self.run_id,
                 env_kwargs={'image_noise_scale': self.image_noise_scale},
                 vec_env_cls=SubprocVecEnv,
+                #vec_env_cls=DummyVecEnv,
+                #wrapper_class=wrapper_class,
                 monitor_dir=self.log_dir,
             )
         elif self.env_source == EnvSrc.PandaGym:
@@ -303,7 +533,7 @@ class TrainingConfig():
                 monitor_dir=self.log_dir,
                 env_kwargs={
                     'frame_skip': 2,
-                }
+                },
             )
             
         else:

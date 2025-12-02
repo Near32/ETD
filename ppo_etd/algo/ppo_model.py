@@ -42,7 +42,7 @@ class PPOModel(ActorCriticCnnPolicy):
         use_sde: bool = False,
         log_std_init: float = 0.0,
         full_std: bool = True,
-        sde_net_arch: Optional[List[int]] = None,
+        #sde_net_arch: Optional[List[int]] = None,
         use_expln: bool = False,
         squash_output: bool = False,
         policy_features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
@@ -173,23 +173,23 @@ class PPOModel(ActorCriticCnnPolicy):
             ))
 
         super(ActorCriticCnnPolicy, self).__init__(
-            observation_space,
-            action_space,
-            lr_schedule,
-            net_arch,
-            activation_fn,
-            False,
-            use_sde,
-            log_std_init,
-            full_std,
-            sde_net_arch,
-            use_expln,
-            squash_output,
-            self.policy_features_extractor_class,
-            self.policy_features_extractor_kwargs,
-            normalize_images,
-            optimizer_class,
-            optimizer_kwargs,
+            observation_space=observation_space,
+            action_space=action_space,
+            lr_schedule=lr_schedule,
+            net_arch=net_arch,
+            activation_fn=activation_fn,
+            ortho_init=False,
+            use_sde=use_sde,
+            log_std_init=log_std_init,
+            full_std=full_std,
+            #sde_net_arch=sde_net_arch,
+            use_expln=use_expln,
+            squash_output=squash_output,
+            features_extractor_class=self.policy_features_extractor_class,
+            features_extractor_kwargs=self.policy_features_extractor_kwargs,
+            normalize_images=normalize_images,
+            optimizer_class=optimizer_class,
+            optimizer_kwargs=optimizer_kwargs,
         )
         self._init_modules()
         self._init_optimizers()
@@ -362,7 +362,10 @@ class PPOModel(ActorCriticCnnPolicy):
             -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         latent_pi, latent_vf, latent_sde, memories = self._get_latent(obs, mem)
         values = self.value_net(latent_vf)
-        distribution = self._get_action_dist_from_latent(latent_pi, latent_sde=latent_sde)
+        distribution = self._get_action_dist_from_latent(
+            latent_pi, 
+            #latent_sde=latent_sde,
+        )
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob, memories
@@ -370,7 +373,10 @@ class PPOModel(ActorCriticCnnPolicy):
     def evaluate_policy(self, obs: Tensor, act: Tensor, mem: Tensor) \
             -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         latent_pi, latent_vf, latent_sde, memories = self._get_latent(obs, mem)
-        distribution = self._get_action_dist_from_latent(latent_pi, latent_sde)
+        distribution = self._get_action_dist_from_latent(
+            latent_pi, 
+            #latent_sde,
+        )
         log_prob = distribution.log_prob(act)
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy(), memories

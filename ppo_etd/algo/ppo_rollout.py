@@ -75,7 +75,7 @@ class PPORollout(BaseAlgorithm):
         super(PPORollout, self).__init__(
             policy=policy,
             env=env,
-            policy_base=policy_base,
+            #policy_base=policy_base,
             learning_rate=learning_rate,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -173,22 +173,24 @@ class PPORollout(BaseAlgorithm):
                 
         if self.env_source == EnvSrc.MiniGrid:
             # Set advanced options for MiniGrid envs
-            self.env.venv.can_see_walls = self.can_see_walls
-            self.env.venv.image_noise_scale = self.image_noise_scale
-            self.env.venv.image_rng = np.random.default_rng(seed=self.run_id + 1313)
+            vec_env = getattr(self.env, "venv", self.env)
+            vec_env.can_see_walls = self.can_see_walls
+            vec_env.image_noise_scale = self.image_noise_scale
+            vec_env.image_rng = np.random.default_rng(seed=self.run_id + 1313)
 
             # Initialize seeds for each MiniGrid env
             np.random.seed(self.run_id)
             seeds = np.random.rand(self.n_envs)
             seeds = [int(s * 0x7fffffff) for s in seeds]
             np.random.seed(self.run_id)
-            self.env.set_seeds(seeds)
-            self.env.venv.waiting = True
+            #self.env.set_seeds(seeds)
+            vec_env.waiting = True
             for i in range(self.n_envs):
-                self.env.send_reset(env_id=i)
+                self.env.send_reset(env_id=i, seed=seeds[i])
             for i in range(self.n_envs):
-                self._last_obs[i] = self.env.recv_obs(env_id=i)
-            self.env.venv.waiting = False
+                #self._last_obs[i] = self.env.recv_obs(env_id=i)
+                self._last_obs[i], _ = self.env.recv_obs_info(env_id=i)
+            vec_env.waiting = False
 
             # Init variables for logging
             self.width = self.env.get_attr('width')[0]
@@ -729,7 +731,14 @@ class PPORollout(BaseAlgorithm):
             self.log_before_transition(values)
 
             # Transition
-            new_obs, rewards, dones, infos = env.step(clipped_actions)
+            step_output = env.step(clipped_actions)
+            if len(step_output) == 4:
+                new_obs, rewards, dones, infos = step_output
+            elif len(step_output) == 5:
+                new_obs, rewards, dones, truncated, infos = step_output
+            else:
+                raise ValueError(f"Unexpected step output: {step_output}")
+            
             if isinstance(new_obs, Dict):
                 if "rgb" in new_obs:
                     new_obs = new_obs["rgb"]
@@ -825,7 +834,15 @@ class PPORollout(BaseAlgorithm):
         self.iteration = 0
 
         total_timesteps, callback = self._setup_learn(
-            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+            total_timesteps=total_timesteps, 
+            #eval_env, 
+            callback=callback, 
+            #eval_freq, 
+            #n_eval_episodes, 
+            #eval_log_path, 
+            reset_num_timesteps=reset_num_timesteps, 
+            tb_log_name=tb_log_name,
+            #progress_bar=True,
         )
         self.ep_info_buffer = deque(maxlen=100)
         self.ep_success_buffer = deque(maxlen=100)

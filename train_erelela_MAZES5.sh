@@ -1,16 +1,16 @@
 #!/bin/bash
 
 GPU_ID=${1:-0}
-RUN_ID=${2:-10}
+RUN_ID=${2:-30}
 
-EXP_NAME=${3:-"erelela_keycorridor_s6r3+ExtR=1.0+IntR=1e-2+RGEp=2+ExprThr=40vs20+CAMResample+RGPeriod=512k+SEED=10"}
-GAME_NAME="KeyCorridorS6R3"
-PROJECT_NAME="EReLELA-KeyCorridor-S6R3"
+EXP_NAME=${3:-"erelela_mazeS5+nep4+lnorm+ExtR=10.0+IntR=1e-2+Ent1e-2+RGEp=2+ExprThr=40+CAMResample+RGPeriod=512k+SEED=30"}
+GAME_NAME="FullMazeS5"
+PROJECT_NAME="EReLELA-FullMaze-S5"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S6_R3_minigrid_wandb_benchmark_AgnosticPOMDPERELELA_config.yaml"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S3_R3_symbolic_minigrid_wandb_ETD_benchmark_AgnosticPOMDPERELELA+R2D2_config.yaml"
 #ERELELA_CONFIG="../../IMPALA/RIDE/configs/keycorridor_S3_R3_minigrid_wandb_RIDE_benchmark_AgnosticPOMDPERELELA_config.yaml"
 #ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_ETD_benchmark_AgnosticPOMDPERELELA_config.yaml"
-ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_SmallETD_benchmark_AgnosticPOMDPERELELA_config.yaml"
+ERELELA_CONFIG="./configs/fullmaze_S5_miniword_wandb_SmallETD_benchmark_AgnosticPOMDPERELELA_config.yaml"
 
 #MIOPEN_DEBUG_DISABLE_FIND_DB=1 \
 #MIOPEN_FIND_MODE=NORMAL \
@@ -18,12 +18,14 @@ ERELELA_CONFIG="./configs/keycorridor_S3_R3_minigrid_wandb_SmallETD_benchmark_Ag
 CUDA_VISIBLE_DEVICES=${GPU_ID} \
 PYTHONPATH="./" \
 xvfb-run -a -s "-screen 0 1024x768x24 -ac +extension GLX +render -noreset" \
-python ./ppo_etd/train.py \
+python -m ipdb -c c ./ppo_etd/train.py \
     --exp_name ${EXP_NAME} \
     --project_name ${PROJECT_NAME} \
     --game_name=${GAME_NAME} \
-    --env_source=minigrid \
+    --env_source=miniworld \
     --run_id=${RUN_ID} \
+    --force_gym_env=1 \
+    --use_legacy_env_wrapping=0 \
     --use_wandb=1 \
     --int_rew_source=EReLELA \
     --erelela_config=${ERELELA_CONFIG} \
@@ -32,8 +34,9 @@ python ./ppo_etd/train.py \
     --erelela_feedbacks_type=normal \
     --total_steps=5000000 \
     --int_rew_coef=0.01 \
-    --ent_coef=5e-4 \
-    --n_epochs=8 \
+    --ext_rew_coef=10.0 \
+    --ent_coef=1e-2 \
+    --n_epochs=4 \
     --model_n_epochs=8 \
     --learning_rate=3e-4 \
     --model_learning_rate=1e-6 \
@@ -45,16 +48,17 @@ python ./ppo_etd/train.py \
     --batch_size=512 \
     --features_dim=64 \
     --model_features_dim=64 \
-    --policy_cnn_type=0 \
-    --model_cnn_type=0 \
-    --policy_mlp_norm=BatchNorm \
-    --model_mlp_norm=BatchNorm \
-    --policy_cnn_norm=BatchNorm \
-    --model_cnn_norm=BatchNorm \
+    --policy_cnn_type=1 \
+    --model_cnn_type=1 \
+    --policy_mlp_norm=LayerNorm \
+    --model_mlp_norm=LayerNorm \
+    --policy_cnn_norm=LayerNorm \
+    --model_cnn_norm=LayerNorm \
     --record_video=0 \
     --enable_plotting=0 \
-    --use_baseline_ther_wrapper=1 \
+    --use_baseline_ther_wrapper=0 \
     --erelela_override=success_threshold=0.01 \
+    --erelela_override=ELA_grounding_signal_key="None" \
     --erelela_override=add_rgb_wrapper=False \
     --erelela_override=language_guided_curiosity=False \
     --erelela_override=language_guided_curiosity_descr_type=descr \
@@ -64,6 +68,7 @@ python ./ppo_etd/train.py \
     --erelela_override=language_guided_curiosity_densify=False \
     --erelela_override=language_guided_curiosity_non_episodic_dampening_rate=0.0 \
     --erelela_override=coverage_manipulation_metric=True \
+    --erelela_override=MiniWorld_symbolic_image=False \
     --erelela_override=MiniWorld_entity_visibility_oracle=False \
     --erelela_override=MiniWorld_entity_visibility_oracle_language_specs=none \
     --erelela_override=MiniWorld_entity_visibility_oracle_too_far_threshold=-1.0 \
@@ -89,8 +94,8 @@ python ./ppo_etd/train.py \
     --erelela_override=ELA_rg_obverter_nbr_games_per_round=32 \
     --erelela_override=ELA_rg_obverter_sampling_round_alternation_only=False \
     --erelela_override=ELA_rg_use_obverter_sampling=False \
-    --erelela_override=ELA_rg_compactness_ambiguity_metric_language_specs=emergent+natural+color+shape+shuffled-emergent+shuffled-natural+shuffled-color+shuffled-shape \
-    --erelela_override=ELA_rg_compactness_ambiguity_metric_resampling=True \
+    --erelela_override=ELA_rg_compactness_ambiguity_metric_language_specs="" \
+    --erelela_override=ELA_rg_compactness_ambiguity_metric_resampling=False \
     --erelela_override=ELA_rg_sanity_check_compactness_ambiguity_metric=False \
     --erelela_override=ELA_rg_shared_architecture=True \
     --erelela_override=ELA_rg_with_logits_mdl_principle=False \
@@ -112,6 +117,8 @@ python ./ppo_etd/train.py \
     --erelela_override=ELA_rg_l2_weight_decay=0.0 \
     --erelela_override=ELA_rg_vocab_size=64 \
     --erelela_override=ELA_rg_max_sentence_length=128 \
+    --erelela_override=ELA_rg_use_feat_converter=False \
+    --erelela_override=ELA_rg_symbol_processing_nbr_hidden_units=64 \
     --erelela_override=ELA_rg_training_period=512000 \
     --erelela_override=ELA_rg_training_max_skip=32 \
     --erelela_override=ELA_rg_training_adaptive_period=False \
