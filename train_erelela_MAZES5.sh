@@ -3,7 +3,7 @@
 GPU_ID=${1:-0}
 RUN_ID=${2:-10}
 
-EXP_NAME=${3:-"erelela_mazeS5+nep4+lnorm+ExtR=10.0+IntR=1e-2+Ent1e-2+RGEp=16vs2+ExprThr=60vs40+CAMResample+RGPeriod=512k+SEED=30"}
+EXP_NAME=${3:-"erelela_subprocvec+freshvenv_mazeS5+nep4+lnorm+ExtR=10.0+IntR=1e-2+Ent1e-2+RGEp=2+ExprThr=40+CAMResample+RGPeriod=512k+SEED=10"}
 GAME_NAME="FullMazeS5"
 PROJECT_NAME="EReLELA-FullMaze-S5"
 #ERELELA_CONFIG="../../IMPALA/RIDE/impala_ride/Regym/benchmark/EReLELA/MiniGrid/keycorridor_S6_R3_minigrid_wandb_benchmark_AgnosticPOMDPERELELA_config.yaml"
@@ -55,7 +55,7 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --model_mlp_norm=LayerNorm \
     --policy_cnn_norm=LayerNorm \
     --model_cnn_norm=LayerNorm \
-    --record_video=1 \
+    --record_video=0 \
     --enable_plotting=0 \
     --use_baseline_ther_wrapper=0 \
     --erelela_override=success_threshold=0.01 \
@@ -125,10 +125,10 @@ python -m ipdb -c c ./ppo_etd/train.py \
     --erelela_override=ELA_rg_training_adaptive_period=False \
     --erelela_override=ELA_rg_descriptive=True \
     --erelela_override=ELA_rg_use_curriculum_nbr_distractors=False \
-    --erelela_override=ELA_rg_nbr_epoch_per_update=16 \
+    --erelela_override=ELA_rg_nbr_epoch_per_update=2 \
     --erelela_override=ELA_rg_accuracy_threshold=90 \
     --erelela_override=ELA_rg_relative_expressivity_threshold=90 \
-    --erelela_override=ELA_rg_expressivity_threshold=60 \
+    --erelela_override=ELA_rg_expressivity_threshold=40 \
     --erelela_override=ELA_rg_nbr_train_distractors=256 \
     --erelela_override=ELA_rg_nbr_test_distractors=3 \
     --erelela_override=ELA_replay_capacity=8192 \
