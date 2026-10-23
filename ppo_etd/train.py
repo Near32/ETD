@@ -13,11 +13,14 @@ import warnings
 import torch as th
 th.backends.cudnn.enabled = False
 th.backends.mkldnn.enabled = True
-if th.cuda.is_available():
-    th.cuda.init()
-    _ = th.zeros(1, device='cuda')  # Force full init
-else:
-    raise NotImplementedError
+# Only the launched process inits CUDA: SubprocVecEnv/DataLoader workers re-import
+# this module as __mp_main__ and would otherwise each create a CUDA context (~380MB RAM).
+if __name__ == '__main__':
+    if th.cuda.is_available():
+        th.cuda.init()
+        _ = th.zeros(1, device='cuda')  # Force full init
+    else:
+        raise NotImplementedError
 
 # noinspection PyUnresolvedReferences
 try:
