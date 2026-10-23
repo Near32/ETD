@@ -161,6 +161,9 @@ class PPORollout(BaseAlgorithm):
             gru_layers=self.policy.gru_layers,
             int_rew_momentum=self.int_rew_momentum,
             use_status_predictor=self.policy.use_status_predictor,
+            # Only TDD with offpolicy_data=1 reads the off-policy replay; the 1e6-frame default
+            # otherwise fills ~25GB of RAM with never-read observations.
+            offpolicy_buffer_size=int(1e6) if self.policy.offpolicy_data else self.n_steps * self.n_envs,
         )
 
 
