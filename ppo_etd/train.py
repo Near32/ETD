@@ -657,6 +657,10 @@ def main(
     config.init_logger()
     config.init_values()
 
+    if os.environ.get('ERELELA_MEMDIAG'):
+        from ppo_etd import diag_mem
+        diag_mem.start(os.environ['ERELELA_MEMDIAG'], period=int(os.environ.get('ERELELA_MEMDIAG_PERIOD', 300)))
+
     train(config)
 
     config.close()
