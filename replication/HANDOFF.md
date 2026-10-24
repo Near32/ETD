@@ -1,7 +1,7 @@
 # EReLELA FullMazeS5 replication — handoff notes
 
 Written for a Claude Code session (or a human) picking up the replication of the EReLELA
-paper results on MiniWorld FullMazeS5 with PPO/ETD. State as of 2026-10-23.
+paper results on MiniWorld FullMazeS5 with PPO/ETD. State as of 2026-10-24.
 
 ## Goal
 
@@ -45,7 +45,14 @@ it was left out. Commits on top:
    off unless `ERELELA_MEMDIAG=<logfile>` is set. Each period
    (`ERELELA_MEMDIAG_PERIOD`, default 300s) it writes a census of CPU tensors and objects.
    With `ERELELA_TRACEMALLOC=1` it also writes tracemalloc growth diffs, which slows the run.
-4. **`replication/`**:
+4. **`replication/`**: launcher, memory loggers and this file (see below).
+5. **W&B outage guard** (`ppo_etd/utils/wandb_utils.py`, called from `configs.py`).
+   ReferentialGym logs `wandb.Table`s during RG phases. Each Table is logged as an artifact, and
+   `Run._assert_can_log_artifact` contacts the server first. A Wi-Fi drop there raised
+   `AuthenticationError: Unable to connect to server to verify API token.` and killed run
+   7lckdovg at 4.11M steps. The guard skips that best-effort check on `wandb.errors.CommError`.
+
+Contents of `replication/`:
    - `run_erelela_MAZES5.sh` is `train_erelela_MAZES5.sh` with three changes: no ipdb, the
      interpreter set through `$PYTHON`, and the RG dataloader worker count as argument 4
      (default 1).
@@ -85,11 +92,12 @@ replication/memlog.sh replication-memfix-seed20 > memlog_seed20.log 2>&1 &
 ```
 
 - `xvfb-run` must be installed. The script wraps training in a virtual display for MiniWorld rendering.
-- **W&B:** offline mode followed by `wandb sync --entity near3213 --project EReLELA-FullMaze-S5 <run dir>`
-  is what was used. Online mode should also work.
-- **W&B volume:** regym's `wandb_log` writes several rows per env step. The offline file is
-  ~400MB at 500k steps, and each `wandb sync` re-sends all of it, so hourly syncs fall further
-  and further behind. Sync rarely, or once at the end.
+- **W&B always runs online.** `configs.py` passes `wandb.Settings(mode="shared")`, which overrides
+  `WANDB_MODE=offline`, so runs stream live to the project and no `wandb sync` is needed. Earlier
+  runs here were launched with `WANDB_MODE=offline` plus hourly syncs; the syncs were redundant.
+  `WANDB_DIR` still sets where the local run folder goes. Log in with `wandb login` before
+  launching. Since the outage guard, short network drops don't stop training.
+- **W&B volume:** regym's `wandb_log` writes several rows per env step (~400MB per 500k steps).
 - **Dataloader workers:** with the fix, a 4-worker run needs a bit more RAM in RG phases.
   It should fit comfortably on a machine with ≥48GB. 4 workers is the original setting.
 
@@ -113,16 +121,36 @@ All runs below are seed 10 and were launched from the worktree `REPLICATION/ETD-
 | gyldcpek | a6c392e | killed |
 | rg6vlrdp | e9c33cb + CUDA guard, 4 DL workers | killed; RG phase hit the RAM limit |
 | gcpbd61u | e9c33cb + CUDA guard, 1 DL worker | stopped at 1.12M steps; swap-thrashed down to ~6 steps/s from the off-policy buffer; smoothed return 0.058 at 1.12M |
-| **7lckdovg** | this branch (CUDA guard + off-policy fix), 1 DL worker | **running since 2026-10-23 00:25**: memory flat; return 0.017 at 975k steps (4 successes in 1,728 episodes) |
+| 7lckdovg | CUDA guard + off-policy fix, 1 DL worker | crashed at 4.11M steps (2026-10-24 03:10) from the W&B `AuthenticationError` above; memory flat throughout. Return curve below |
+| (next) | all fixes incl. W&B outage guard, 1 DL worker | seed 10 relaunched on 2026-10-24 |
 
-Only m0tru5l0 and 7lckdovg were synced to W&B. The owner considers the dead runs disposable
+Return (`rollout/ep_info_rew_mean`, mean over the 210k steps before each mark):
+
+| Steps | 7lckdovg | orig. seed 10 (h7evmv4x) | orig. seed 20 (otuhph0r) |
+|---|---|---|---|
+| 1.0M | 0.007 | 0.136 | 0.090 |
+| 2.0M | 0.050 | 0.234 | 0.160 |
+| 2.5M | 0.085 | 0.687 | 0.325 |
+| 3.0M | 0.176 | 0.643 | 0.376 |
+| 3.5M | 0.288 | 0.848 | 0.437 |
+| 4.0M | 0.577 | 0.604 | 0.365 |
+| 4.1M | 0.613 | 0.681 | 0.382 |
+| 5.0M | — | 0.824 | 0.735 |
+
+7lckdovg took off ~1–1.5M steps later than seed 10, then matched it within ~10% by 4.0–4.1M.
+The two original seeds already differ ~2x mid-training.
+
+To fetch the original curves: `wandb.Api().run('near3213/EReLELA-FullMaze-S5/h7evmv4x').history(samples=2000,
+keys=['time/total_timesteps','rollout/ep_info_rew_mean'])`. `scan_history` is too slow for these runs.
+
+Because W&B was in fact online, all of these runs are probably on W&B already. The owner considers the dead runs disposable
 but has not yet approved deleting them.
 
 ## Open questions / next steps
 
-1. **Is learning slower than the original?** At ~1M steps this machine's runs are below the
-   original seeds (0.02–0.06 vs 0.16–0.25). Reward is very sparse there, so judge at ~2M steps.
-   If the run is still near zero at 2M steps, the gap is probably real.
+1. **Is the late take-off systematic?** 7lckdovg lagged both original seeds until ~3.5M steps, then
+   caught up with seed 10. The relaunched seed 10 and other seeds will show whether that is noise.
+   No run here has reached 5M steps yet, which is where the ±10% target is assessed.
 2. **Seed 20** (`run_erelela_MAZES5.sh 0 20 ...`) has not been run yet. Run it, ideally on a
    machine with more RAM, and also with 4 DL workers to match the original exactly.
 3. **Possible remaining differences from the original runs:**

@@ -55,7 +55,7 @@ def _patch_gym_rng_pickle_ctor():
 
 _patch_gym_rng_pickle_ctor()
 
-from ppo_etd.utils.wandb_utils import ensure_wandb_initialized
+from ppo_etd.utils.wandb_utils import ensure_wandb_initialized, tolerate_artifact_check_outages
 
 
 class ResetObsInfoCompatibilityWrapper(gym.Wrapper):
@@ -185,6 +185,7 @@ class TrainingConfig():
                 save_code=True,  # optional
                 config=vars(self),
             )
+            tolerate_artifact_check_outages()
             os.environ['WANDB_RUN_ID'] = self.wandb_run.id
             os.environ['WANDB_PROJECT'] = self.wandb_run.project
             if getattr(self.wandb_run, 'entity', None):

@@ -140,3 +140,29 @@ def ensure_wandb_initialized():
         return _start_child_run(wandb)
 
     return _reattach_parent_run(wandb)
+
+
+def tolerate_artifact_check_outages():
+    """Keep training alive when W&B is unreachable while a wandb.Table is logged.
+
+    Logging a Table logs an artifact, and Run._assert_can_log_artifact first contacts the server.
+    It already ignores requests' network errors, but a dropped connection during API-key
+    verification surfaces as wandb.errors.AuthenticationError (a CommError) and crashed the run.
+    """
+    wandb = _load_wandb()
+    if wandb is None:
+        return
+    from wandb.sdk.wandb_run import Run
+
+    original = Run._assert_can_log_artifact
+    if getattr(original, '_tolerates_outages', False):
+        return
+
+    def _assert_can_log_artifact(self, artifact):
+        try:
+            return original(self, artifact)
+        except wandb.errors.CommError as exc:
+            logging.warning("Skipping W&B artifact type check (server unreachable): %s", exc)
+
+    _assert_can_log_artifact._tolerates_outages = True
+    Run._assert_can_log_artifact = _assert_can_log_artifact
